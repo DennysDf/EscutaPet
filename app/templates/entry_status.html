@@ -1,0 +1,14 @@
+{% extends "public_base.html" %}
+{% block title %}Confirmação · {{ flow.name }}{% endblock %}
+{% block content %}
+<main class="verification-shell" data-verification-status data-token="{{ collection.public_token }}" data-required="{{ 1 if flow.phone_verification_mode == 'required' else 0 }}">
+  <section class="verification-card">{% if system.logo_icon_file %}<img class="public-brand-logo" src="/branding/{{ system.logo_icon_file }}?v={{ system.branding_version }}" alt="{{ system.product_name }}">{% else %}<div class="brand-mark large">E</div>{% endif %}<span class="eyebrow">CADASTRO SALVO</span><h1>{{ flow.closing_title }}</h1><p>{{ flow.closing_text }}</p>
+    {% if verification %}<div class="verification-timeline"><div class="active"><span>1</span><strong>Cadastro salvo</strong></div><div data-state="sent"><span>2</span><strong>Mensagem enviada</strong></div><div data-state="delivered"><span>3</span><strong>Entregue</strong></div><div data-state="read"><span>4</span><strong>Lida</strong></div><div data-state="confirmed"><span>5</span><strong>Número confirmado</strong></div></div><div class="verification-message" data-status-copy>Enviando a confirmação para {{ collection.lead.phone }}…</div>
+    <form method="post" action="/coleta/sessao/{{ collection.public_token }}/reenviar" class="verification-resend"><label>Corrigir ou reenviar para<input name="phone" value="{{ collection.lead.phone }}" inputmode="tel" required></label><button class="btn secondary">Reenviar confirmação</button></form>
+    {% if user and flow.allow_manual_confirmation and not collection.confirmation_status.startswith('confirmed') %}<form method="post" action="/coleta/sessao/{{ collection.public_token }}/confirmar-manualmente"><button class="btn ghost">Confirmar manualmente como entrevistador</button></form>{% endif %}
+    {% else %}<div class="success-banner">Este fluxo não exige confirmação do WhatsApp.</div>{% endif %}
+    <a class="btn primary large {{ 'is-hidden' if flow.phone_verification_mode == 'required' and not collection.confirmation_status.startswith('confirmed') else '' }}" data-finish-button href="{{ '/entrevistador' if collection.mode == 'interviewer' else ('/coleta/' ~ collection.device.token if collection.device else '/') }}">Concluir</a>
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}<script src="/static/js/entry-status.js?v=3.6.0"></script>{% endblock %}

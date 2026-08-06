@@ -1,0 +1,45 @@
+{% extends "public_base.html" %}
+{% block title %}{{ survey_config.name }}{% endblock %}
+{% block content %}
+<main class="survey-shell">
+  <header class="survey-header">
+    {% if system.logo_icon_file %}<img class="public-brand-logo small" src="/branding/{{ system.logo_icon_file }}?v={{ system.branding_version }}" alt="{{ system.product_name }}">{% else %}<div class="brand-mark">E</div>{% endif %}
+    <div><strong>{{ system.product_name }}</strong><small>{{ survey_config.name }} · v{{ survey_config.version_number }}</small></div>
+    <span class="privacy-badge">{{ 'Anônima' if survey_config.response_mode == 'anonymous' else 'Identificada' }}</span>
+  </header>
+  {% if execution.status == 'completed' %}
+  <section class="survey-card completed-card">
+    <span class="success-mark">✓</span><h1>Obrigado pela participação!</h1><p>{{ rendered_closing }}</p><small>As respostas foram registradas com sucesso.</small>
+    {% if return_url %}<a class="btn primary large" href="{{ return_url }}">Continuar</a>{% elif execution.is_test %}<a class="btn primary" href="/questionarios/{{ execution.questionnaire.id }}/editar">Voltar ao editor</a>{% endif %}
+  </section>
+  {% else %}
+  <section class="survey-progress"><div><span style="width:{{ ((execution.current_position)/(question_count or 1)*100)|round }}%"></span></div><small>Pergunta {{ execution.current_position + 1 }} de {{ question_count }}</small></section>
+  <section class="survey-card">
+    <span class="question-kind">{{ {'choice':'Escolha uma opção','multiple_choice':'Escolha uma ou mais opções','yes_no':'Escolha uma opção','score':'Dê uma nota','stars':'Avalie','text':'Conte para nós','photo':'Envie uma foto','audio':'Envie um áudio','video':'Envie um vídeo','document':'Envie um documento','location':'Compartilhe a localização','contact':'Compartilhe um contato','multiple_files':'Envie uma mídia ou arquivo'}.get(question.type, question.type) }}</span>
+    <h1 class="survey-question-prompt">{{ prompt }}</h1>
+    {% if question.type in ['photo','audio','video','document','location','contact','multiple_files'] %}
+    <div class="notice-box"><strong>Esta etapa continua pelo WhatsApp.</strong><p>Responda à mensagem da pesquisa com o conteúdo solicitado. Quando chegar, esta tela será atualizada na próxima abertura.</p></div>
+    {% else %}
+    <form method="post" class="answer-form">
+      {% if question.type == 'choice' %}
+      <div class="answer-options">{% for item in question_options %}<button type="submit" name="answer" value="{{ item.value or item.label }}">{{ item.label }}</button>{% endfor %}</div>
+      {% if question_settings.allow_other %}<div class="other-answer"><input name="answer" placeholder="Outra resposta"><button class="btn secondary" type="submit">Enviar outra</button></div>{% endif %}
+      {% elif question.type == 'multiple_choice' %}
+      <div class="answer-options answer-checkboxes">{% for item in question_options %}<label><input type="checkbox" name="answer" value="{{ item.value or item.label }}"><span>{{ item.label }}</span></label>{% endfor %}{% if question_settings.allow_other %}<label><input type="checkbox" data-enable-other><span>Outro</span></label><input name="answer" data-other-answer placeholder="Qual outra resposta?">{% endif %}</div>
+      <button class="btn primary large" type="submit">Continuar</button>
+      {% elif question.type == 'yes_no' %}
+      <div class="answer-options two"><button type="submit" name="answer" value="sim">Sim</button><button type="submit" name="answer" value="não">Não</button></div>
+      {% elif question.type in ['score','stars'] %}
+      <div class="score-options">{% for score in range(question.min_score, question.max_score + 1) %}<button type="submit" name="answer" value="{{ score }}">{{ '★' if question.type == 'stars' else score }}{% if question.type == 'stars' %}<small>{{ score }}</small>{% endif %}</button>{% endfor %}</div>
+      <div class="scale-labels"><span>{{ question_settings.min_label or 'Pouco satisfeito' }}</span><span>{{ question_settings.max_label or 'Muito satisfeito' }}</span></div>
+      {% else %}
+      <textarea name="answer" rows="{{ 5 if question_settings.text_format == 'long' else 3 }}" {{ 'required' if question.required else '' }} {% if question_settings.max_length %}maxlength="{{ question_settings.max_length }}"{% endif %} placeholder="{{ question_settings.placeholder or 'Digite sua resposta...' }}"></textarea>
+      <button class="btn primary large" type="submit">Continuar</button>
+      {% endif %}
+    </form>
+    {% endif %}
+  </section>
+  {% endif %}
+  <footer class="survey-footer">🔒 Respostas protegidas · {{ 'Sem vínculo com dados pessoais' if survey_config.response_mode == 'anonymous' else 'Usadas apenas para o objetivo informado' }}</footer>
+</main>
+{% endblock %}

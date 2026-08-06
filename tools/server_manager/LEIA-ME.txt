@@ -1,0 +1,46 @@
+ESCUTAPET 3.6.0 - GERENCIADOR DO SERVIDOR WINDOWS
+==================================================
+
+O gerenciador controla o launcher oficial do EscutaPet. Ao iniciar, ele sobe e
+monitora o servidor FastAPI, o worker de mensagens, a transcrição e o Redis
+opcional exatamente como o START.bat atual.
+
+COMO GERAR O EXE
+----------------
+1. Configure o ícone em Configurações > Logos e aplicativo > Ícone.
+2. Feche o EscutaPet se estiver atualizando os arquivos.
+3. Execute BUILD_GERENCIADOR_EXE.bat na pasta principal.
+4. Aguarde a criação de EscutaPet_Gerenciador.exe na pasta principal.
+
+O ambiente usado para compilar fica isolado em tools\server_manager\.build-venv
+e não altera o ambiente .venv do sistema.
+
+Se houver erro, a janela permanece aberta. O diagnóstico completo fica em
+tools\server_manager\build\ultimo_build.log.
+
+ÍCONE
+-----
+O BUILD procura, nesta ordem:
+- app\data\branding\pwa-512.png gerado pelo upload do ícone;
+- prévia ou favicon da identidade configurada;
+- ícone PWA padrão do EscutaPet.
+
+O ícone é incorporado ao arquivo EXE. A janela e a bandeja consultam novamente
+a identidade atual a cada abertura. Se a logo for trocada, gere o EXE outra vez
+para atualizar também o ícone mostrado pelo Explorador do Windows.
+
+SEGURANÇA OPERACIONAL
+---------------------
+O botão Parar encerra somente o PID do launcher iniciado pelo gerenciador e sua
+árvore de processos. Se a porta estiver ocupada por outro programa ou por um
+EscutaPet iniciado manualmente, o gerenciador avisa e não encerra esse processo.
+
+Os arquivos de configuração e log ficam em:
+- app\data\server_manager\config.json
+- app\data\logs\escutapet_manager.log
+
+ATUALIZAÇÕES
+------------
+Preserve app\data, .env e EscutaPet_Gerenciador.exe durante atualizações. Caso
+uma versão altere o próprio gerenciador, execute BUILD_GERENCIADOR_EXE.bat outra
+vez para incorporar o código e a versão novos.

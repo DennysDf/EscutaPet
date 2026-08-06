@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Minha conta · EscutaPet{% endblock %}
+{% block page_title %}Minha conta{% endblock %}
+{% block page_subtitle %}Dados pessoais, aparência e segurança{% endblock %}
+{% block content %}
+<form method="post" class="profile-layout">
+  <article class="panel profile-preview">
+    <span class="avatar xl" style="--avatar-color:{{ account.avatar_color }}">{{ account.name[:1]|upper }}</span>
+    <h2>{{ account.name }}</h2>
+    <p>@{{ account.username }}</p>
+    <span class="pill">{{ {'admin':'Administrador','operator':'Operador','interviewer':'Entrevistador'}.get(account.role, account.role) }}</span>
+    <small>A cor e o tema são aplicados ao salvar.</small>
+  </article>
+  <div class="stack">
+    <section class="panel form-stack">
+      <div class="panel-head"><div><h2>Dados da conta</h2><p>Informações usadas dentro do sistema.</p></div></div>
+      <div class="form-grid">
+        <label>Nome<input name="name" value="{{ account.name }}" required></label>
+        <label>Usuário<input value="{{ account.username }}" disabled></label>
+        <label>E-mail<input type="email" name="email" value="{{ account.email or '' }}"></label>
+        <label>Telefone<input name="phone" value="{{ account.phone or '' }}" inputmode="tel"></label>
+        <label>Cor do perfil<input type="color" name="avatar_color" value="{{ account.avatar_color }}"></label>
+        <label>Tema<select name="preferred_theme"><option value="system" {{ 'selected' if account.preferred_theme == 'system' else '' }}>Seguir dispositivo</option><option value="light" {{ 'selected' if account.preferred_theme == 'light' else '' }}>Claro</option><option value="dark" {{ 'selected' if account.preferred_theme == 'dark' else '' }}>Escuro</option></select></label>
+        <label class="span-2">Fuso horário<select name="timezone_name"><option value="">Usar padrão do sistema · {{ system.timezone_name }}</option>{% for value,label in timezone_options %}<option value="{{ value }}" {{ 'selected' if account.timezone_name == value else '' }}>{{ label }}</option>{% endfor %}</select><small>Afeta somente a exibição para sua conta; o banco permanece em UTC.</small></label>
+      </div>
+      <label class="check-card"><input type="checkbox" name="navigation_compact" {{ 'checked' if account.navigation_compact else '' }}><span><strong>Navegação compacta</strong><small>Recolhe o menu lateral e deixa mais espaço para o conteúdo.</small></span></label>
+      <div class="panel-head"><div><h2>Assinatura das conversas</h2><p>É usada apenas quando você envia mensagens humanas pelo atendimento.</p></div></div>
+      <label class="check-card"><input type="checkbox" name="chat_signature_enabled" {{ 'checked' if account.chat_signature_enabled else '' }}><span><strong>Adicionar assinatura automaticamente</strong><small>Você pode desmarcar ao enviar cada mensagem.</small></span></label>
+      <label>Texto da assinatura<textarea name="chat_signature" rows="4" placeholder="Atenciosamente,&#10;*{{ account.name }}*">{{ account.chat_signature or '' }}</textarea><small>Use *asteriscos* para negrito, _sublinhado_ para itálico e ~til para tachado no WhatsApp.</small></label>
+    </section>
+    <section class="panel form-stack">
+      <div class="panel-head"><div><h2>Alterar senha</h2><p>Preencha somente quando quiser trocar a senha.</p></div></div>
+      <div class="form-grid"><label>Senha atual<input type="password" name="current_password" autocomplete="current-password"></label><label>Nova senha<input type="password" name="new_password" minlength="8" autocomplete="new-password"></label></div>
+    </section>
+    <div class="sticky-actions"><a class="btn ghost" href="/">Cancelar</a><button class="btn primary">Salvar perfil</button></div>
+  </div>
+</form>
+{% endblock %}

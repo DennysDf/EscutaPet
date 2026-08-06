@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Teste por WhatsApp · EscutaPet{% endblock %}
+{% block page_title %}Teste por WhatsApp{% endblock %}
+{% block page_subtitle %}Acompanhe o envio e as respostas sem misturar o teste aos resultados reais{% endblock %}
+{% block top_actions %}<a class="btn ghost" href="/questionarios">Voltar</a><form method="post" action="/questionarios/testes/{{ execution.id }}/processar"><button class="btn secondary">Atualizar e processar</button></form>{% endblock %}
+{% block content %}
+<section class="two-columns test-progress-layout">
+  <article class="panel"><div class="panel-head"><div><span class="eyebrow">EXECUÇÃO DE TESTE</span><h2>{{ execution.questionnaire_version.name }} · v{{ execution.questionnaire_version.version_number }}</h2><p>{{ execution.lead.phone or execution.lead.phone_normalized }} · iniciada em {{ execution.created_at|datebr }}</p></div><span class="status {{ execution.status }}">{{ execution.status }}</span></div>
+    <div class="test-step-list">
+      {% for question in questions %}{% set answer = answers_by_question.get(question.id) %}<div class="test-step {{ 'completed' if answer else 'pending' }}"><span>{{ loop.index }}</span><div><strong>{{ question.text }}</strong>{% if answer %}<p>{{ answer.answer_text or answer.answer_value or 'Conteúdo recebido' }}</p><small>Respondida em {{ answer.answered_at|datebr }} · {{ answer.source }}</small>{% else %}<p>Aguardando resposta.</p>{% endif %}</div></div>{% endfor %}
+    </div>
+  </article>
+  <article class="panel"><div class="panel-head"><div><h2>Mensagens enviadas</h2><p>Estado da fila usada pela integração real.</p></div></div><div class="queue-timeline">{% for item in queue %}<div><span class="status {{ item.status }}">{{ item.status }}</span><div><strong>{{ item.kind }}</strong><p>{{ item.payload_text }}</p>{% if item.error_message %}<small class="danger-text">{{ item.error_message }}</small>{% endif %}</div></div>{% else %}<div class="empty-block">A fila ainda não criou mensagens.</div>{% endfor %}</div></article>
+</section>
+<script>setTimeout(() => location.reload(), 12000);</script>
+{% endblock %}

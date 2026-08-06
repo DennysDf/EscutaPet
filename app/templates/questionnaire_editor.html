@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if questionnaire.id else 'Novo' }} questionário · EscutaPet{% endblock %}
+{% block page_title %}Editor de questionário{% endblock %}
+{% block page_subtitle %}Crie no modo simples e revele opções técnicas somente quando precisar{% endblock %}
+{% block content %}
+<form id="questionnaire-form" method="post" class="questionnaire-editor-v321 questionnaire-editor-v324" novalidate data-edit-mode="simple" data-server-error="{{ '1' if editor_had_error else '0' }}" data-saved="{{ '1' if editor_saved else '0' }}" data-editor-recovery data-editor-entity="questionnaire" data-editor-key="{{ editor_entity_key }}" data-editor-revision="{{ editor_revision }}" data-editor-updated-at="{{ editor_updated_at }}">
+  <input type="hidden" name="questions_json" id="questions-json">
+  <input type="hidden" name="submission_token" value="{{ editor_submission_token }}">
+  <input type="hidden" name="base_revision" value="{{ editor_revision }}">
+  <input type="hidden" name="editor_recovery_source" value="direct">
+
+  <header class="questionnaire-commandbar" aria-label="Comandos do editor">
+    <div class="commandbar-title">
+      <span class="eyebrow">{{ 'QUESTIONÁRIO PUBLICADO' if questionnaire.id and version_impact.current_version else 'NOVO QUESTIONÁRIO' }}</span>
+      <strong data-editor-title>{{ questionnaire.name or 'Questionário sem nome' }}</strong>
+      <div class="commandbar-meta">
+        <span class="badge">v{{ version_impact.current_version or '—' }}</span>
+        <span class="status-dot status-{{ questionnaire.status }}">{{ {'draft':'Rascunho','active':'Ativo','paused':'Pausado','archived':'Arquivado'}.get(questionnaire.status, questionnaire.status) }}</span>
+        <span class="draft-state">Rascunho separado da versão publicada</span>
+        <span class="autosave-status" data-autosave-status>Proteção local ativa</span><span class="save-status" data-save-status>{{ 'Erro ao salvar' if editor_had_error else ('Salvo' if questionnaire.id else 'Alterações não salvas') }}</span>
+      </div>
+    </div>
+    <div class="editor-mode-switch" role="group" aria-label="Nível de edição">
+      <button type="button" class="active" data-editor-mode="simple">Simples</button>
+      <button type="button" data-editor-mode="advanced">Avançado</button>
+    </div>
+    <div class="commandbar-actions">
+      <button class="btn secondary" type="submit" name="editor_action" value="draft">Salvar rascunho</button>
+      <button class="btn ghost" type="button" data-open-preview>Testar</button>
+      <button class="btn primary" type="submit" name="editor_action" value="publish" data-publish-version>Publicar</button>
+      <details class="editor-actions-menu">
+        <summary class="icon-button" aria-label="Mais ações" title="Mais ações">•••</summary>
+        <div>{% if questionnaire.id %}<a href="/questionarios/{{ questionnaire.id }}/testar">Teste real</a>{% endif %}<a href="#publication" data-tab-link="publication">Histórico e impacto</a><a href="/questionarios">Voltar à listagem</a></div>
+      </details>
+    </div>
+  </header>
+
+  <nav class="questionnaire-tabs" aria-label="Etapas do questionário" role="tablist">
+    <button type="button" class="active" role="tab" aria-selected="true" data-editor-tab="general">1 <span>Geral</span></button>
+    <button type="button" role="tab" aria-selected="false" data-editor-tab="questions">2 <span>Perguntas</span><b data-question-count>0</b></button>
+    <button type="button" role="tab" aria-selected="false" data-editor-tab="logic" data-advanced-only>3 <span>Lógica</span></button>
+    <button type="button" role="tab" aria-selected="false" data-editor-tab="channels">4 <span>Canais</span></button>
+    <button type="button" role="tab" aria-selected="false" data-editor-tab="segments" data-advanced-only>5 <span>Segmentação e alertas</span></button>
+    <button type="button" role="tab" aria-selected="false" data-editor-tab="publication">6 <span>Publicação</span></button>
+  </nav>
+
+  {% if editor_errors %}
+  <div class="editor-error-summary" role="alert" tabindex="-1" data-error-summary>
+    <strong>Revise {{ editor_errors|length }} {{ 'campo' if editor_errors|length == 1 else 'campos' }} antes de salvar.</strong>
+    <ul>{% for item in editor_errors %}<li><a href="#{{ item.section }}" data-error-link data-section="{{ item.section }}" data-item-key="{{ item.item_key }}" data-field="{{ item.field }}">{{ item.message }}</a></li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  <main class="questionnaire-tabpanels">
+    <section class="panel editor-tabpanel active" id="identity" role="tabpanel" data-editor-panel="general">
+      <div class="section-title"><div><h2>Informações gerais</h2><p>O essencial para a equipe reconhecer e aplicar este questionário.</p></div></div>
+      <div class="form-grid">
+        <label class="span-2">Nome do questionário<input name="name" value="{{ questionnaire.name }}" placeholder="Ex.: Satisfação após o atendimento" data-questionnaire-name></label>
+        <label>Objetivo<select name="objective">
+          {% for value,label in [('satisfaction','Satisfação'),('registration','Cadastro estruturado'),('profile','Perfil e segmentação'),('followup','Acompanhamento'),('campaign','Campanha')] %}<option value="{{ value }}" {{ 'selected' if questionnaire.objective == value else '' }}>{{ label }}</option>{% endfor %}
+        </select></label>
+        <label>Status<select name="status">{% for value,label in [('draft','Rascunho'),('active','Ativo'),('paused','Pausado'),('archived','Arquivado')] %}<option value="{{ value }}" {{ 'selected' if questionnaire.status == value else '' }}>{{ label }}</option>{% endfor %}</select></label>
+        <label class="span-2">Descrição<div class="placeholder-enabled-field"><textarea name="description" rows="3" placeholder="Explique quando este questionário deve ser usado.">{{ questionnaire.description }}</textarea><button type="button" class="placeholder-insert-button" data-open-placeholder aria-label="Inserir variável na descrição" title="Inserir variável">&#123;&#123;…&#125;&#125;</button></div></label>
+        <label>Identificação<select name="response_mode" data-response-mode><option value="identified" {{ 'selected' if questionnaire.response_mode == 'identified' else '' }}>Identificada</option><option value="anonymous" {{ 'selected' if questionnaire.response_mode == 'anonymous' else '' }}>Anônima</option></select></label>
+      </div>
+      <details class="advanced-disclosure">
+        <summary>Mensagens da pesquisa</summary>
+        <div class="form-grid">
+          <label class="span-2">Mensagem de abertura<div class="placeholder-enabled-field"><textarea name="opening_message" rows="3">{{ questionnaire.opening_message }}</textarea><button type="button" class="placeholder-insert-button" data-open-placeholder aria-label="Inserir variável na mensagem de abertura" title="Inserir variável">&#123;&#123;…&#125;&#125;</button></div><small>Use o botão para escolher entre todas as variáveis compatíveis.</small></label>
+          <label class="span-2">Mensagem de encerramento<div class="placeholder-enabled-field"><textarea name="closing_message" rows="3">{{ questionnaire.closing_message }}</textarea><button type="button" class="placeholder-insert-button" data-open-placeholder aria-label="Inserir variável na mensagem de encerramento" title="Inserir variável">&#123;&#123;…&#125;&#125;</button></div></label>
+        </div>
+      </details>
+    </section>
+
+    <section class="panel editor-tabpanel questions-tabpanel" id="questions" role="tabpanel" data-editor-panel="questions" hidden>
+      <div class="section-title"><div><h2>Perguntas</h2><p>Selecione uma pergunta à esquerda e edite somente o que se aplica ao tipo escolhido.</p></div><button class="btn primary" type="button" data-add-question>+ Adicionar pergunta</button></div>
+      <div class="notice-box" data-registration-help hidden><strong>Cadastro estruturado simples:</strong> use vínculos apenas nas perguntas que alimentam responsável, pet ou atendimento. As demais continuam como pesquisa complementar.</div>
+      <div class="questions-workspace">
+        <aside class="question-outline" aria-label="Lista de perguntas">
+          <div class="question-outline-head"><strong>Estrutura</strong><small>Arraste ou use as setas</small></div>
+          <div id="questions-list" class="questions-list"></div>
+          <div class="empty-question" data-empty-question><span>▤</span><strong>Nenhuma pergunta</strong><p>Use um modelo ou adicione a primeira pergunta.</p><button class="btn primary" type="button" data-add-question>Adicionar pergunta</button></div>
+        </aside>
+        <section class="question-detail" id="question-editor-panel" aria-live="polite">
+          <div class="question-detail-placeholder"><span>←</span><h3>Selecione uma pergunta</h3><p>A configuração completa aparecerá aqui sem ocupar toda a página.</p></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="panel editor-tabpanel" id="trigger" role="tabpanel" data-editor-panel="logic" data-advanced-only hidden>
+      <div class="section-title"><div><h2>Lógica de início e recorrência</h2><p>Defina quando esta pesquisa se torna elegível.</p></div></div>
+      <div class="trigger-grid">
+        {% for value,label,desc in [('manual','Manual','A equipe inicia quando necessário.'),('immediate_registration','Ao cadastrar','Inicia após criar o lead.'),('after_registration','Após o cadastro','Espera um intervalo.'),('whatsapp_onboarding','Novo WhatsApp','Atende números desconhecidos.'),('recurring','Recorrente','Repete por intervalo.'),('random','Amostra aleatória','Usa parte do público.')] %}
+        <label class="choice-card"><input type="radio" name="trigger_type" value="{{ value }}" {{ 'checked' if questionnaire.trigger_type == value else '' }}><span><strong>{{ label }}</strong><small>{{ desc }}</small></span></label>
+        {% endfor %}
+      </div>
+      <div class="form-grid conditional-block" data-delay-block>
+        <label>Esperar<input type="number" min="0" name="delay_value" value="{{ questionnaire.delay_value }}"></label>
+        <label>Unidade<select name="delay_unit"><option value="minutes" {{ 'selected' if questionnaire.delay_unit == 'minutes' else '' }}>Minutos</option><option value="hours" {{ 'selected' if questionnaire.delay_unit == 'hours' else '' }}>Horas</option><option value="days" {{ 'selected' if questionnaire.delay_unit == 'days' else '' }}>Dias</option></select></label>
+        <label>Hora preferencial<input type="number" min="0" max="23" name="send_hour" value="{{ questionnaire.send_hour }}"></label>
+        <label>Repetir a cada (dias)<input type="number" min="1" name="recurrence_days" value="{{ questionnaire.recurrence_days }}" placeholder="Ex.: 90"></label>
+      </div>
+      <div class="form-grid technical-settings">
+        <label>Amostra aleatória (%)<input type="number" min="1" max="100" name="random_percent" value="{{ questionnaire.random_percent }}"></label>
+        <label>Máximo de tentativas<input type="number" min="1" name="max_attempts" value="{{ questionnaire.max_attempts }}"></label>
+        <label>Intervalo de nova tentativa (h)<input type="number" min="1" name="retry_hours" value="{{ questionnaire.retry_hours }}"></label>
+        <label class="check-card compact"><input type="checkbox" name="stop_after_response" {{ 'checked' if questionnaire.stop_after_response else '' }}><span><strong>Parar após resposta</strong><small>Interrompe lembretes pendentes.</small></span></label>
+      </div>
+    </section>
+
+    <section class="panel editor-tabpanel" id="audience" role="tabpanel" data-editor-panel="channels" hidden>
+      <div class="section-title"><div><h2>Canais e público</h2><p>Um questionário pode ser reutilizado no WhatsApp, quiosque ou aplicação assistida.</p></div></div>
+      <div class="channel-picker" data-field-group="channels">
+        <label><input type="checkbox" name="channels" value="whatsapp" {{ 'checked' if 'whatsapp' in questionnaire_channels else '' }}><span><strong>WhatsApp</strong><small>Texto, botões, listas e mídias.</small></span></label>
+        <label><input type="checkbox" name="channels" value="kiosk" {{ 'checked' if 'kiosk' in questionnaire_channels else '' }}><span><strong>Quiosque / totem</strong><small>Aplicação autônoma no ponto.</small></span></label>
+        <label><input type="checkbox" name="channels" value="interviewer" {{ 'checked' if 'interviewer' in questionnaire_channels else '' }}><span><strong>Entrevistador</strong><small>Aplicação assistida em celular ou tablet.</small></span></label>
+      </div>
+      <div class="warning-box" data-anonymous-warning>Pesquisas anônimas não usam WhatsApp.</div>
+      <div class="form-grid" data-advanced-only>
+        <label>Público<select name="audience_type" data-audience-select>{% for value,label in [('all','Todos os leads elegíveis'),('segment','Um segmento específico'),('new_leads','Leads dos últimos 30 dias'),('no_response','Quem ainda não respondeu')] %}<option value="{{ value }}" {{ 'selected' if questionnaire.audience_type == value else '' }}>{{ label }}</option>{% endfor %}</select></label>
+        <label data-segment-target>Segmento<select name="target_segment_id"><option value="">Selecione...</option>{% for segment in segments %}<option value="{{ segment.id }}" {{ 'selected' if questionnaire.target_segment_id|string == segment.id|string else '' }}>{{ segment.name }}</option>{% endfor %}</select></label>
+      </div>
+      <div class="channel-preview-callout"><div><strong>Veja antes de publicar</strong><p>Confira a mesma estrutura em quatro formatos de tela.</p></div><button type="button" class="btn secondary" data-open-preview>Abrir prévia</button></div>
+    </section>
+
+    <section class="panel editor-tabpanel" id="actions" role="tabpanel" data-editor-panel="segments" data-advanced-only hidden>
+      <div class="section-title"><div><h2>Segmentação e alertas</h2><p>Regras avançadas que não atrapalham a criação básica.</p></div></div>
+      <div class="check-stack">
+        <label class="check-card"><input type="checkbox" name="auto_segment" {{ 'checked' if questionnaire.auto_segment else '' }}><span><strong>Segmentação automática</strong><small>Aplica as regras configuradas nas respostas.</small></span></label>
+        <label class="check-card"><input type="checkbox" name="alert_enabled" {{ 'checked' if questionnaire.alert_enabled else '' }}><span><strong>Criar alertas por nota baixa</strong><small>Gera uma ocorrência acionável sem expor respostas anônimas.</small></span></label>
+      </div>
+      <div class="form-grid">
+        <label>Nota de alerta<input type="number" step="0.1" name="alert_threshold" value="{{ questionnaire.alert_threshold }}"></label>
+        <label>Prioridade<select name="alert_severity"><option value="medium" {{ 'selected' if questionnaire.alert_severity == 'medium' else '' }}>Média</option><option value="high" {{ 'selected' if questionnaire.alert_severity == 'high' else '' }}>Alta</option><option value="critical" {{ 'selected' if questionnaire.alert_severity == 'critical' else '' }}>Crítica</option></select></label>
+      </div>
+    </section>
+
+    <section class="panel editor-tabpanel" id="publication" role="tabpanel" data-editor-panel="publication" hidden>
+      <div class="section-title"><div><h2>Revisão e publicação</h2><p>Confira vínculos e impacto antes de criar uma nova versão imutável.</p></div><span class="badge">Atual: v{{ version_impact.current_version or '—' }}</span></div>
+      {% if questionnaire.id %}
+      <div class="version-impact-grid">
+        <div><small>Próxima versão</small><strong>v{{ version_impact.next_version }}</strong></div>
+        <div><small>Perguntas</small><strong>{{ version_impact.questions_before }} → {{ version_impact.questions_after }}</strong></div>
+        <div><small>Adicionadas / removidas</small><strong>{{ version_impact.added|length }} / {{ version_impact.removed|length }}</strong></div>
+        <div><small>Alteradas</small><strong>{{ version_impact.changed|length }}</strong></div>
+        <div><small>Opções alteradas</small><strong>{{ version_impact.options_changed|length }}</strong></div>
+        <div><small>Fluxos vinculados</small><strong>{{ version_impact.flows }}</strong></div>
+        <div><small>Ações em versão fixa</small><strong>{{ version_impact.fixed_actions }}</strong></div>
+        <div><small>Execuções ativas/agendadas</small><strong>{{ version_impact.active_executions }}</strong></div>
+      </div>
+      <div class="notice-box publication-safety"><strong>Publicação segura:</strong> pesquisas iniciadas continuam na versão anterior. Somente novas pesquisas usam a nova versão.</div>
+      {% else %}
+      <div class="empty-state compact"><h3>Primeira publicação</h3><p>Salve como rascunho para continuar preparando ou publique para criar a versão 1.</p></div>
+      {% endif %}
+      <div class="publication-summary" data-publication-summary></div>
+      {% if questionnaire.id %}
+      <div class="section-title history-title"><div><h2>Histórico de versões</h2><p>Publicações antigas permanecem somente para leitura.</p></div></div>
+      {% if questionnaire_versions %}<div class="version-history-list">{% for item in questionnaire_versions %}<a href="/questionarios/{{ questionnaire.id }}/versoes/{{ item.id }}" class="version-history-row"><strong>{{ 'Histórico migrado' if item.status == 'historical' else 'Versão ' ~ item.number }}</strong><span>{{ item.published_at|datebr }}</span><span>{{ item.author }}</span><span>{{ item.question_count }} pergunta(s)</span><span>{{ item.execution_count }} execução(ões)</span><span>{% if item.status == 'historical' %}somente leitura{% else %}+{{ item.summary.added|length }} · −{{ item.summary.removed|length }} · ~{{ item.summary.changed|length }}{% endif %}</span></a>{% endfor %}</div>{% else %}<div class="empty-state compact"><p>A primeira versão será criada quando você publicar.</p></div>{% endif %}
+      {% endif %}
+      <div class="publication-actions"><button class="btn secondary large" type="submit" name="editor_action" value="draft">Salvar rascunho</button><button class="btn primary large" type="submit" name="editor_action" value="publish" data-publish-version>Publicar nova versão</button></div>
+    </section>
+  </main>
+</form>
+
+<dialog class="template-dialog" data-template-dialog aria-labelledby="template-dialog-title">
+  <form method="dialog"><button class="dialog-close icon-button" value="close" aria-label="Fechar modelos" title="Fechar">×</button><span class="eyebrow">COMEÇAR RÁPIDO</span><h2 id="template-dialog-title">Qual questionário você quer criar?</h2><p>O modelo apenas prepara uma estrutura inicial totalmente editável.</p><div class="template-grid">
+    <button type="button" data-questionnaire-template="satisfaction"><strong>Satisfação</strong><small>Nota, motivo e comentário.</small></button>
+    <button type="button" data-questionnaire-template="registration"><strong>Responsável e pets</strong><small>Cadastro essencial com vínculos.</small></button>
+    <button type="button" data-questionnaire-template="followup"><strong>Pós-atendimento</strong><small>Evolução, melhora e retorno.</small></button>
+    <button type="button" data-questionnaire-template="anonymous"><strong>Pesquisa anônima</strong><small>Opinião sem identificação.</small></button>
+    <button type="button" data-questionnaire-template="blank"><strong>Em branco</strong><small>Comece somente com uma pergunta.</small></button>
+  </div></form>
+</dialog>
+
+<dialog class="placeholder-dialog" data-placeholder-dialog aria-labelledby="placeholder-dialog-title">
+  <div class="placeholder-dialog-head"><div><span class="eyebrow">VARIÁVEIS DISPONÍVEIS</span><h2 id="placeholder-dialog-title">Inserir informação automática</h2><p>Escolha uma variável; ela será colocada exatamente onde está o cursor.</p></div><button type="button" class="icon-button" data-close-placeholder aria-label="Fechar">×</button></div>
+  <div class="placeholder-groups">
+    <section data-placeholder-identified><h3>Pessoa</h3><div class="placeholder-grid">{% for token,label in [('nome','Primeiro nome'),('primeiro_nome','Primeiro nome'),('nome_completo','Nome completo'),('telefone','WhatsApp'),('cidade','Cidade'),('bairro','Bairro')] %}<button type="button" data-placeholder-value="{{ '{{' ~ token ~ '}}' }}"><code>{{ '{{' ~ token ~ '}}' }}</code><span>{{ label }}</span></button>{% endfor %}</div></section>
+    <section data-placeholder-identified><h3>Pet e atendimento</h3><div class="placeholder-grid">{% for token,label in [('pet_nome','Nome do pet'),('pet_especie','Espécie do pet'),('pet_servico','Serviço do pet'),('pet_motivo','Motivo do atendimento'),('pet_status_servico','Situação do serviço'),('pets_nomes','Nomes dos pets'),('quantidade_pets','Quantidade de pets'),('pets_servicos_lista','Lista de pets e serviços'),('servicos_resumo','Resumo dos serviços'),('motivos_resumo','Resumo dos motivos'),('status_servicos','Situações dos serviços')] %}<button type="button" data-placeholder-value="{{ '{{' ~ token ~ '}}' }}"><code>{{ '{{' ~ token ~ '}}' }}</code><span>{{ label }}</span></button>{% endfor %}</div></section>
+    <section><h3>Sistema e aplicação</h3><div class="placeholder-grid">{% for token,label in [('nome_empresa','Organização'),('nome_questionario','Questionário'),('nome_fluxo','Jornada'),('unidade','Ponto/unidade'),('data_atendimento','Data do atendimento'),('data_atual','Data atual')] %}<button type="button" data-placeholder-value="{{ '{{' ~ token ~ '}}' }}"><code>{{ '{{' ~ token ~ '}}' }}</code><span>{{ label }}</span></button>{% endfor %}</div></section>
+  </div>
+  <footer><button type="button" class="btn ghost" data-close-placeholder>Cancelar</button></footer>
+</dialog>
+
+<dialog class="questionnaire-preview-dialog" data-preview-dialog aria-labelledby="preview-dialog-title">
+  <div class="preview-dialog-head"><div><span class="eyebrow">PRÉVIA</span><h2 id="preview-dialog-title">Como a pesquisa será vista</h2></div><button type="button" class="icon-button" data-close-preview aria-label="Fechar prévia" title="Fechar">×</button></div>
+  <nav class="preview-tabs" role="tablist"><button class="active" type="button" data-preview-mode="web">Web</button><button type="button" data-preview-mode="mobile">Celular</button><button type="button" data-preview-mode="whatsapp">WhatsApp</button><button type="button" data-preview-mode="kiosk">Quiosque</button></nav>
+  <div class="preview-stage" data-preview-stage data-mode="web"></div>
+</dialog>
+
+<script type="application/json" id="initial-questions">{{ initial_questions|tojson }}</script>
+<script type="application/json" id="editor-errors">{{ editor_errors|tojson }}</script>
+<script type="application/json" id="question-impacts">{{ question_impacts|tojson }}</script>
+<script type="application/json" id="editor-conflict-data">{{ (editor_conflict or {})|tojson }}</script>
+<p class="sr-only" aria-live="polite" data-reorder-live></p>
+{% endblock %}
+{% block scripts %}<script>window.QUESTION_EDITOR_SEGMENTS={{ segment_options|tojson }};window.QUESTION_EDITOR_VERSION={{ {'current':version_impact.current_version|default(0),'next':version_impact.next_version|default(1),'active':version_impact.active_executions|default(0)}|tojson }};</script><script src="/static/js/questionnaire-editor.js?v=3.6.0"></script><script src="/static/js/editor-recovery.js?v=3.6.0"></script>{% endblock %}

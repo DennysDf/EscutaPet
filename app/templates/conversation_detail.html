@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}{{ conversation.lead.name if conversation.lead else 'Conversa' }} · EscutaPet{% endblock %}
+{% block styles %}<link rel="stylesheet" href="/static/css/conversations.css?v=3.6.0">{% endblock %}
+{% block page_title %}Conversas{% endblock %}
+{% block page_subtitle %}Atendimento humano, pesquisas e WhatsApp{% endblock %}
+{% block content %}
+<section class="conversation-shell has-selection" data-chat data-conversation-id="{{ conversation.id }}" data-initial-has-more="{{ 'true' if initial_has_more else 'false' }}">
+  {% include "_conversation_list.html" %}
+  <main class="chat-column">
+    <header class="chat-header">
+      <a class="chat-mobile-back icon-button" href="/conversas" aria-label="Voltar às conversas">{{ icon('arrow-left') }}</a>
+      <span class="lead-avatar large">{{ (conversation.lead.name if conversation.lead else '?')[:1]|upper }}</span>
+      <button class="chat-contact-button" type="button" data-context-toggle aria-label="Mostrar informações do contato">
+        <strong>{{ conversation.lead.name if conversation.lead else 'Contato WhatsApp' }}</strong>
+        <small>{{ conversation.phone_normalized or conversation.whatsapp_lid }} · <span data-conversation-status-label>{{ status_label(conversation.internal_status) }}</span></small>
+      </button>
+      <div class="chat-header-actions">
+        <button class="icon-button" type="button" data-chat-search-toggle title="Buscar nesta conversa" aria-label="Buscar nesta conversa">{{ icon('search') }}</button>
+        <button class="icon-button" type="button" data-context-toggle title="Informações do contato" aria-label="Mostrar informações do contato">{{ icon('info') }}</button>
+        <details class="chat-actions-menu">
+          <summary class="icon-button" aria-label="Mais ações" title="Mais ações">{{ icon('ellipsis-vertical') }}</summary>
+          <div>
+            <button type="button" data-conversation-action="{{ 'unpin' if conversation.pinned else 'pin' }}">{{ icon('pin') }} <span>{{ 'Desafixar conversa' if conversation.pinned else 'Fixar conversa' }}</span></button>
+            <button type="button" data-conversation-action="mark_unread">{{ icon('message-circle') }} <span>Marcar como não lida</span></button>
+            <button type="button" data-conversation-action="{{ 'open' if conversation.internal_status in ['closed','archived'] else 'close' }}">{{ icon('archive') }} <span>{{ 'Reabrir conversa' if conversation.internal_status in ['closed','archived'] else 'Encerrar conversa' }}</span></button>
+            {% if conversation.lead %}<a href="/leads/{{ conversation.lead.id }}">{{ icon('account') }} <span>Abrir lead</span></a>{% endif %}
+          </div>
+        </details>
+      </div>
+    </header>
+    <div class="chat-search-bar" data-chat-search-bar hidden>{{ icon('search') }}<input type="search" data-chat-search placeholder="Buscar nas mensagens carregadas" aria-label="Buscar nas mensagens carregadas"><span data-chat-search-count></span><button class="icon-button" type="button" data-chat-search-close aria-label="Fechar busca">{{ icon('x') }}</button></div>
+    {% if quiet.active %}<div class="quiet-hours-banner" data-quiet-banner>{{ icon('clock') }}<span><strong>Horário de silêncio ativo</strong>{{ quiet.label }}.</span></div>{% endif %}
+    <div class="chat-history" data-chat-history aria-live="polite" aria-label="Histórico da conversa">
+      <div class="history-loader" data-history-loader {{ '' if initial_has_more else 'hidden' }}><span></span> Buscando mensagens anteriores…</div>
+      <div class="history-start" data-history-start {{ 'hidden' if initial_has_more else '' }}>Início da conversa</div>
+      {% for message in messages %}{% set media = media_by_message.get(message.id) %}
+      <article class="chat-message {{ message.direction }}" data-message-id="{{ message.id }}" data-external-id="{{ message.external_id or '' }}" data-occurred-at="{{ message.occurred_at.isoformat() }}">
+        <div class="message-actions">
+          <button class="icon-button" type="button" data-reply title="Responder" aria-label="Responder a esta mensagem">{{ icon('reply') }}</button>
+          <button class="icon-button" type="button" data-react title="Reagir" aria-label="Reagir a esta mensagem" {{ 'disabled' if not message.external_id else '' }}>{{ icon('smile-plus') }}</button>
+        </div>
+        <div class="message-bubble">
+          {% if message.quoted_content %}<button class="quoted-message" type="button" data-quoted-message>{{ message.quoted_content }}</button>{% endif %}
+          {% if media %}
+            {% if not media.local_path %}<div class="media-pending" data-media-pending>{{ icon('download') }}<span><strong>{{ 'Baixando mídia…' if media.download_status in ['pending','downloading'] else 'Mídia indisponível' }}</strong><small>{{ media.file_name or 'Aguarde a preparação do arquivo.' }}</small></span></div>
+            {% elif media.type == 'image' %}<button class="media-thumb image-thumb" type="button" data-media-preview data-media-url="/midias/{{ media.id }}" data-media-name="{{ media.file_name or 'Imagem' }}" data-media-mime="{{ media.mime_type or 'image/*' }}"><img src="/midias/{{ media.id }}" alt="{{ media.file_name or 'Imagem' }}" loading="lazy"></button>
+            {% elif media.type == 'audio' %}<audio controls preload="metadata" src="/midias/{{ media.id }}"></audio>
+            {% elif media.type == 'video' %}<button class="media-thumb video-thumb" type="button" data-media-preview data-media-url="/midias/{{ media.id }}" data-media-name="{{ media.file_name or 'Vídeo' }}" data-media-mime="{{ media.mime_type or 'video/*' }}"><video preload="metadata" src="/midias/{{ media.id }}"></video><i>{{ icon('play') }}</i></button>
+            {% else %}<button class="attachment-card" type="button" data-media-preview data-media-url="/midias/{{ media.id }}" data-media-name="{{ media.file_name or 'Arquivo' }}" data-media-mime="{{ media.mime_type or 'application/octet-stream' }}">{{ icon('file-text') }}<span><strong>{{ media.file_name or 'Arquivo' }}</strong><small>Visualizar ou baixar</small></span></button>{% endif %}
+            {% if media.type == 'audio' %}{% if media.transcript_text %}<div class="audio-transcript"><strong>Transcrição</strong><p>{{ media.transcript_text }}</p></div>{% elif media.transcription_status in ['pending','processing'] %}<div class="audio-transcript pending">{{ 'Transcrevendo áudio…' if media.transcription_status == 'processing' else 'Áudio aguardando transcrição…' }}</div>{% elif media.transcription_status == 'failed' %}<div class="audio-transcript failed">Não foi possível transcrever este áudio.</div>{% endif %}{% endif %}
+          {% endif %}
+          {% if message.content and not (message.content.startswith('[') and media) %}<p data-rich-text>{{ message.content }}</p>{% endif %}
+          {% if reactions_by_message.get(message.id) %}<div class="message-reactions">{% for emoji, reaction in reactions_by_message.get(message.id).items() %}<button type="button" data-react-emoji="{{ emoji }}" data-mine="{{ 'true' if reaction.mine else 'false' }}" class="{{ 'mine' if reaction.mine else '' }}">{{ emoji }}{% if reaction.count > 1 %}<span>{{ reaction.count }}</span>{% endif %}</button>{% endfor %}</div>{% endif %}
+          {% if message.status == 'failed' %}<button class="message-retry" type="button" data-retry-message>{{ icon('rotate') }} Tentar novamente</button>{% endif %}
+          <footer>{% if user_names.get(message.sender_user_id) %}<span>{{ user_names.get(message.sender_user_id) }}</span>{% endif %}<time>{{ message.occurred_at|datebr }}</time><i data-message-status class="message-status {{ message.status }}" title="{{ message.error_message or message.status }}">{{ {'queued':'◷','pending':'◷','sending':'◷','sent':'✓','delivered':'✓✓','read':'✓✓','played':'✓✓','failed':'!'}.get(message.status,'') }}</i></footer>
+        </div>
+      </article>{% endfor %}
+      <button class="scroll-latest" type="button" data-scroll-latest hidden aria-label="Ir para as mensagens mais recentes">{{ icon('arrow-down') }}<span data-new-count></span></button>
+    </div>
+    <form method="post" enctype="multipart/form-data" action="/conversas/{{ conversation.id }}/responder" class="chat-composer" data-chat-form>
+      <input type="hidden" name="reply_to_message_id" data-reply-id>
+      <div class="reply-preview" data-reply-preview hidden><span>{{ icon('reply') }}<b data-reply-copy></b></span><button type="button" data-cancel-reply aria-label="Cancelar resposta">{{ icon('x') }}</button></div>
+      <div class="attachment-preview" data-attachment-preview hidden><div data-attachment-visual></div><span><strong data-attachment-title></strong><small data-attachment-meta></small></span><button type="button" data-clear-attachment aria-label="Remover anexo">{{ icon('x') }}</button></div>
+      <div class="recording-preview" data-recording-preview hidden><span class="recording-pulse"></span><strong data-recording-time>00:00</strong><button type="button" data-cancel-recording>{{ icon('x') }} Cancelar</button><button type="button" data-stop-recording>{{ icon('stop') }} Concluir</button></div>
+      <div class="composer-row">
+        <button class="composer-icon" type="button" data-emoji title="Emojis" aria-label="Abrir seletor de emojis">{{ icon('smile') }}</button>
+        <label class="composer-icon attach-button" title="Anexar arquivo" aria-label="Anexar arquivo">{{ icon('paperclip') }}<input type="file" name="attachment" data-attachment></label>
+        <div class="composer-input-wrap"><textarea name="text" data-composer-text rows="1" placeholder="Digite uma mensagem" aria-label="Mensagem"></textarea></div>
+        <details class="composer-more"><summary class="composer-icon" title="Formatação e assinatura" aria-label="Formatação e assinatura">{{ icon('ellipsis-vertical') }}</summary><div><div class="format-actions"><button type="button" data-format="bold"><b>B</b><span>Negrito</span></button><button type="button" data-format="italic"><i>I</i><span>Itálico</span></button><button type="button" data-format="strike"><s>S</s><span>Tachado</span></button><button type="button" data-format="code"><code>&lt;/&gt;</code><span>Monoespaçado</span></button></div><label class="signature-toggle"><input type="checkbox" name="use_signature" {{ 'checked' if user.chat_signature_enabled and user.chat_signature else '' }}> Usar assinatura</label></div></details>
+        <button class="composer-icon record-button" type="button" data-record title="Gravar áudio" aria-label="Gravar áudio">{{ icon('mic') }}</button>
+        <button class="send-message" data-send hidden aria-label="Enviar mensagem">{{ icon('send') }}</button>
+      </div>
+      <span class="composer-status" data-composer-status>Enter envia · Shift+Enter quebra a linha</span>
+    </form>
+  </main>
+  <button class="context-backdrop" type="button" data-context-close aria-label="Fechar informações" hidden></button>
+  <aside class="chat-context" data-chat-context aria-label="Informações da conversa" aria-hidden="true">
+    <header><strong>Informações</strong><button class="icon-button" type="button" data-context-close aria-label="Fechar informações">{{ icon('x') }}</button></header>
+    <section class="context-profile"><span class="lead-avatar xl">{{ (conversation.lead.name if conversation.lead else '?')[:1]|upper }}</span><h3>{{ conversation.lead.name if conversation.lead else 'Contato não identificado' }}</h3><p>{{ conversation.phone_normalized or conversation.whatsapp_lid }}</p>{% if conversation.lead %}<a class="btn ghost" href="/leads/{{ conversation.lead.id }}">Abrir lead</a>{% endif %}</section>
+    <section><span class="eyebrow">RESPONSÁVEL</span><label class="context-select"><span>Atendente</span><select data-conversation-assignee><option value="">Sem responsável</option>{% for item in active_users %}<option value="{{ item.id }}" {{ 'selected' if conversation.assigned_user_id == item.id else '' }}>{{ item.name }}</option>{% endfor %}</select></label></section>
+    {% if conversation.lead %}<section><span class="eyebrow">PETS</span>{% for pet in conversation.lead.pets %}<p>🐾 {{ pet.name }} · {{ pet.species or 'pet' }}</p>{% else %}<p>Sem pets cadastrados.</p>{% endfor %}</section>{% endif %}
+    <section><span class="eyebrow">NOTA INTERNA</span><form method="post" action="/conversas/{{ conversation.id }}/nota" class="form-stack"><textarea name="content" rows="3" placeholder="Não será enviada ao WhatsApp."></textarea><button class="btn ghost">Salvar nota</button></form>{% if notes %}<div class="chat-notes">{% for note in notes %}<p>{{ note.content }}<small>{{ note.created_at|datebr }}</small></p>{% endfor %}</div>{% endif %}</section>
+  </aside>
+
+  <dialog class="chat-dialog emoji-dialog" data-emoji-dialog aria-labelledby="emoji-dialog-title"><header><div><strong id="emoji-dialog-title">Emojis</strong><small data-emoji-mode-label>Inserir na mensagem</small></div><button type="button" data-dialog-close aria-label="Fechar">{{ icon('x') }}</button></header><label class="emoji-search">{{ icon('search') }}<input type="search" data-emoji-search placeholder="Buscar emoji"></label><nav class="emoji-categories" data-emoji-categories aria-label="Categorias"></nav><div class="emoji-grid" data-emoji-grid></div></dialog>
+  <dialog class="chat-dialog media-dialog" data-media-dialog aria-labelledby="media-dialog-title"><header><div><strong id="media-dialog-title" data-media-title>Visualizar arquivo</strong><small data-media-subtitle></small></div><div class="media-dialog-actions"><button type="button" class="icon-button" data-media-zoom title="Zoom" aria-label="Ampliar imagem">{{ icon('zoom-in') }}</button><a class="btn ghost" data-media-download download>{{ icon('download') }} Baixar</a><button type="button" data-dialog-close aria-label="Fechar">{{ icon('x') }}</button></div></header><div class="media-viewer" data-media-viewer></div></dialog>
+  <div class="chat-toast" data-chat-toast role="status" aria-live="polite" hidden></div>
+</section>
+{% endblock %}
+{% block scripts %}<script>window.CHAT_BOOT={{ {'conversationId':conversation.id,'lastId':messages[-1].id if messages else 0,'firstId':messages[0].id if messages else 0,'hasMore':initial_has_more}|tojson }};</script><script src="/static/js/conversation-list.js?v=3.6.0"></script><script src="/static/js/conversations.js?v=3.6.0"></script>{% endblock %}

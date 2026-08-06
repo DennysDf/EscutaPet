@@ -1,0 +1,99 @@
+{% macro icon(name, extra='') -%}<svg class="icon {{ extra }}" aria-hidden="true" focusable="false"><use href="/static/icons/icons.svg?v=3.6.0#{{ name }}"></use></svg>{%- endmacro %}
+<!doctype html>
+<html lang="pt-BR" data-theme-preference="{{ user.preferred_theme if user else 'system' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="{{ system.sidebar_color if system else '#071a2b' }}">
+  <meta name="color-scheme" content="light dark">
+  <title>{% block title %}{{ system.product_name if system else 'EscutaPet' }}{% endblock %}</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="{{ '/branding/favicon.png?v=' ~ system.branding_version if system and system.logo_icon_file else '/static/img/pwa-192.png' }}">
+  <link rel="apple-touch-icon" href="{{ '/branding/pwa-192.png?v=' ~ system.branding_version if system and system.logo_icon_file else '/static/img/pwa-192.png' }}">
+  <link rel="stylesheet" href="/static/css/app.css?v=3.6.0">
+  <link rel="stylesheet" href="/static/css/visual-v3.css?v=3.6.0">
+  {% block styles %}{% endblock %}
+  <style>:root{--brand:{{ system.primary_color if system else '#0f766e' }};--brand-2:{{ system.secondary_color if system else '#2563eb' }};--sidebar-bg:{{ system.sidebar_color if system else '#071a2b' }};--avatar-color:{{ user.avatar_color if user else '#0f766e' }};}</style>
+  <script>
+  (()=>{const r=document.documentElement,p=localStorage.getItem('escutapet:theme')||r.dataset.themePreference||'system';r.dataset.theme=p==='system'?(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'):p;if(localStorage.getItem('escutapet:sidebar')==='collapsed'||{{ 'true' if user and user.navigation_compact else 'false' }})r.classList.add('sidebar-collapsed')})();
+  </script>
+</head>
+<body>
+{% if user %}
+<a class="skip-link" href="#main-content">Pular para o conteúdo</a>
+<div class="connection-banner" data-offline-banner hidden>{{ icon('wifi-off') }} Sem conexão. Os dados serão retomados quando a rede voltar.</div>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar" aria-label="Navegação principal">
+    <div class="brand-row">
+      <a class="brand" href="/" aria-label="{{ system.product_name }}">
+        {% if system.logo_horizontal_file %}<img class="brand-logo brand-logo-horizontal" src="/branding/{{ system.logo_horizontal_file }}?v={{ system.branding_version }}" alt="{{ system.product_name }}">{% else %}<span class="brand-mark brand-expanded-fallback">E</span><span class="brand-copy"><strong>{{ system.product_name }}</strong><small>{{ system.organization_name }}</small></span>{% endif %}
+        {% if system.logo_vertical_file %}<img class="brand-logo brand-logo-collapsed" src="/branding/{{ system.logo_vertical_file }}?v={{ system.branding_version }}" alt="">{% elif system.logo_icon_file %}<img class="brand-logo brand-logo-collapsed" src="/branding/{{ system.logo_icon_file }}?v={{ system.branding_version }}" alt="">{% else %}<span class="brand-mark brand-logo-collapsed">E</span>{% endif %}
+      </a>
+      <button class="sidebar-collapse" type="button" data-sidebar-collapse title="Recolher menu" aria-label="Recolher menu" aria-expanded="true">{{ icon('collapse') }}</button>
+    </div>
+    <nav class="nav-list">
+      <small class="nav-label">VISÃO GERAL</small>
+      <a href="/" class="{{ 'active' if path == '/' else '' }}" data-label="Painel">{{ icon('dashboard') }}<span>Painel</span></a>
+      <small class="nav-label">RELACIONAMENTO</small>
+      <a href="/leads" class="{{ 'active' if path.startswith('/leads') else '' }}" data-label="Leads e pets">{{ icon('users') }}<span>Leads e pets</span></a>
+      <a href="/conversas" class="{{ 'active' if path.startswith('/conversas') else '' }}" data-label="Conversas">{{ icon('message-circle') }}<span>Conversas</span></a>
+      <a href="/alertas" class="{{ 'active' if path.startswith('/alertas') else '' }}" data-label="Alertas">{{ icon('alert') }}<span>Alertas</span></a>
+      <a href="/segmentos" class="{{ 'active' if path.startswith('/segmentos') else '' }}" data-label="Segmentos">{{ icon('sparkles') }}<span>Segmentos</span></a>
+      <small class="nav-label">PESQUISAS</small>
+      <a href="/questionarios" class="{{ 'active' if path.startswith('/questionarios') or path.startswith('/fluxos') else '' }}" data-label="Questionários e fluxos">{{ icon('template') }}<span>Questionários e fluxos</span></a>
+      {% if user.role in ['admin','operator'] %}<a href="/agendamentos" class="{{ 'active' if path.startswith('/agendamentos') else '' }}" data-label="Agendamentos">{{ icon('calendar') }}<span>Agendamentos</span></a>{% endif %}
+      {% if user.role == 'admin' %}<a href="/relatorios" class="{{ 'active' if path.startswith('/relatorios') else '' }}" data-label="Relatórios">{{ icon('chart') }}<span>Relatórios <i>beta</i></span></a>{% endif %}
+      <small class="nav-label">COLETA</small>
+      <a href="/entrevistador" class="{{ 'active' if path.startswith('/entrevistador') else '' }}" data-label="Modo entrevistador">{{ icon('play') }}<span>Modo entrevistador</span></a>
+      <a href="/dispositivos" class="{{ 'active' if path.startswith('/dispositivos') or path.startswith('/cidades') else '' }}" data-label="Cidades e pontos">{{ icon('location') }}<span>Cidades e pontos</span></a>
+      {% if user.role == 'admin' %}
+      <small class="nav-label">ADMINISTRAÇÃO</small>
+      <a href="/usuarios" class="{{ 'active' if path.startswith('/usuarios') else '' }}" data-label="Usuários">{{ icon('user-cog') }}<span>Usuários</span></a>
+      <a href="/configuracoes" class="{{ 'active' if path.startswith('/configuracoes') else '' }}" data-label="Configurações e Z-API">{{ icon('settings') }}<span>Configurações e Z-API</span></a>
+      {% endif %}
+    </nav>
+    <a class="sidebar-user" href="/conta">
+      <span class="avatar" style="--avatar-color:{{ user.avatar_color }}">{{ user.name[:1]|upper }}</span>
+      <span><strong>{{ user.name }}</strong><small>{{ {'admin':'Administrador','operator':'Operador','interviewer':'Entrevistador'}.get(user.role,user.role) }}</small></span>
+    </a>
+  </aside>
+  <main class="main-content">
+    <header class="topbar">
+      <button class="menu-toggle icon-button" type="button" data-menu-toggle aria-label="Abrir menu" aria-controls="sidebar" aria-expanded="false">{{ icon('menu') }}</button>
+      <div class="topbar-copy"><strong>{% block page_title %}Painel{% endblock %}</strong><span>{% block page_subtitle %}Gestão simples de pesquisas e relacionamento{% endblock %}</span></div>
+      <div class="topbar-actions">
+        {% block top_actions %}{% endblock %}
+        <button class="icon-button" type="button" data-theme-toggle title="Alternar tema" aria-label="Alternar tema">{{ icon('moon') }}</button>
+        <button class="user-menu-trigger" type="button" data-user-menu aria-expanded="false" aria-controls="user-menu-panel"><span class="avatar" style="--avatar-color:{{ user.avatar_color }}">{{ user.name[:1]|upper }}</span><span>{{ user.name.split()[0] }}</span>{{ icon('chevron-down') }}</button>
+        <div class="user-menu-panel" id="user-menu-panel" data-user-menu-panel hidden>
+          <strong>{{ user.name }}</strong><small>{{ system.organization_name }}</small>
+          <a href="/conta">{{ icon('account') }} Minha conta</a>
+          <button type="button" data-open-preferences aria-expanded="false" aria-controls="preferences-drawer">{{ icon('accessibility') }} Aparência</button>
+          <form method="post" action="/logout"><button>{{ icon('logout') }} Sair</button></form>
+        </div>
+      </div>
+    </header>
+    <div class="page-content" id="main-content" tabindex="-1">
+      {% for item in flashes %}<div class="flash {{ item.category }}" role="status"><span>{{ item.message }}</span><button class="icon-button" type="button" onclick="this.parentElement.remove()" aria-label="Fechar aviso">{{ icon('close') }}</button></div>{% endfor %}
+      {% block content %}{% endblock %}
+    </div>
+    <footer class="app-footer">{{ system.footer_text or 'Escuta responsável · consentimento e privacidade por estrutura' }}</footer>
+  </main>
+</div>
+<button class="sidebar-overlay" data-sidebar-overlay type="button" aria-label="Fechar menu"></button>
+<div class="preferences-drawer" id="preferences-drawer" data-preferences hidden>
+  <button class="preferences-backdrop" type="button" data-close-preferences aria-label="Fechar"></button>
+  <aside class="preferences-panel" role="dialog" aria-modal="true" aria-label="Aparência">
+    <div class="panel-head"><div><h2>Aparência e acessibilidade</h2><p>Preferências salvas neste dispositivo.</p></div><button class="icon-button" type="button" data-close-preferences aria-label="Fechar aparência e acessibilidade">{{ icon('close') }}</button></div>
+    <div class="preference-group"><strong>Tema</strong><div class="segmented" data-preference="theme"><button type="button" data-value="light">Claro</button><button type="button" data-value="dark">Escuro</button><button type="button" data-value="system">Automático</button></div></div>
+    <div class="preference-group"><strong>Tamanho do texto</strong><div class="segmented" data-preference="fontScale"><button type="button" data-value="small">Menor</button><button type="button" data-value="normal">Normal</button><button type="button" data-value="large">Maior</button></div></div>
+    <div class="preference-group"><strong>Densidade</strong><div class="segmented" data-preference="density"><button type="button" data-value="comfortable">Confortável</button><button type="button" data-value="compact">Compacta</button></div></div>
+    <label class="switch-row"><span><strong>Alto contraste</strong><small>Reforça bordas e foco.</small></span><input type="checkbox" data-preference-toggle="contrast"></label>
+    <label class="switch-row"><span><strong>Reduzir movimentos</strong><small>Evita animações decorativas.</small></span><input type="checkbox" data-preference-toggle="motion"></label>
+  </aside>
+</div>
+{% else %}{% block anonymous_content %}{% endblock %}{% endif %}
+<script src="/static/js/app.js?v=3.6.0"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

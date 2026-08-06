@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Agendamentos e execuções · EscutaPet{% endblock %}
+{% block page_title %}Agendamentos e execuções{% endblock %}
+{% block page_subtitle %}Tudo que está previsto, em andamento ou já aplicado{% endblock %}
+{% block top_actions %}<div class="top-action-group"><button class="btn secondary" type="button" data-open-schedule-test>{{ icon('message-circle') }} Testar WhatsApp</button><form method="post" action="/operacao/processar"><button class="btn primary">{{ icon('play') }} Processar fila agora</button></form></div>{% endblock %}
+{% block content %}
+{% set status_labels = {'scheduled':'Agendada','active':'Em andamento','completed':'Concluída','blocked':'Bloqueada','cancelled':'Cancelada','abandoned':'Abandonada'} %}
+{% set queue_labels = {'pending':'Na fila','sending':'Enviando','sent':'Enviada','delivered':'Entregue','read':'Lida','played':'Ouvida','failed':'Falhou','cancelled':'Cancelada','simulated':'Simulada'} %}
+
+<section class="schedule-hero panel">
+  <div><span class="eyebrow">CENTRAL OPERACIONAL · 3.6.0</span><h2>Da programação à resposta, sem perder o contexto.</h2><p>Fluxos D+2/D+7, campanhas, recorrências, ações manuais e testes usam a mesma fila segura do worker.</p></div>
+  <div class="schedule-worker {{ 'online' if worker_online else 'offline' }}"><i></i><span><strong>{{ 'Worker ativo' if worker_online else 'Worker sem sinal recente' }}</strong><small>Horários exibidos em {{ timezone_name }}</small></span></div>
+</section>
+
+<section class="schedule-kpis">
+  <a href="/agendamentos?status=pending"><span>Agendadas</span><strong>{{ summary.scheduled }}</strong><small>{{ summary.overdue }} vencida(s)</small></a>
+  <a href="/agendamentos?status=pending&date_from={{ calendar_days[0].date }}&date_to={{ calendar_days[0].date }}"><span>Para hoje</span><strong>{{ summary.today }}</strong><small>inclui envios futuros</small></a>
+  <a href="/agendamentos?status=pending"><span>Próximos 7 dias</span><strong>{{ summary.week }}</strong><small>janela operacional</small></a>
+  <a href="/agendamentos?status=active"><span>Em andamento</span><strong>{{ summary.active }}</strong><small>aguardando respostas</small></a>
+  <a href="/agendamentos?status=attention"><span>Requer atenção</span><strong>{{ summary.attention }}</strong><small>bloqueios ou falhas</small></a>
+</section>
+
+<section class="panel schedule-week"><div class="panel-head"><div><h2>Próximos sete dias</h2><p>Clique em um dia para ver somente suas pesquisas.</p></div><span class="soft-badge">{{ summary.week }} prevista(s)</span></div><div class="schedule-week-grid">{% for day in calendar_days %}<a class="{{ 'today' if loop.first else '' }}" href="/agendamentos?status=pending&date_from={{ day.date }}&date_to={{ day.date }}"><small>{{ day.weekday }}</small><strong>{{ day.label }}</strong><b>{{ day.count }}</b></a>{% endfor %}</div></section>
+
+<section class="panel schedule-filter-panel">
+  <form method="get" action="/agendamentos" class="schedule-filters">
+    <label class="schedule-search">Buscar<input name="q" value="{{ filters.q }}" placeholder="Lead, telefone ou questionário"></label>
+    <label>Estado<select name="status"><option value="">Todos</option>{% for value,label in [('pending','Agendadas'),('active','Em andamento'),('completed','Concluídas'),('attention','Requer atenção'),('cancelled','Canceladas')] %}<option value="{{ value }}" {{ 'selected' if filters.status == value else '' }}>{{ label }}</option>{% endfor %}</select></label>
+    <label>Origem<select name="origin"><option value="">Todas</option>{% for value,label in [('flow','Fluxos e jornadas'),('campaign','Campanhas e segmentos'),('automatic','Automações do questionário'),('manual','Manual'),('test','Testes')] %}<option value="{{ value }}" {{ 'selected' if filters.origin == value else '' }}>{{ label }}</option>{% endfor %}</select></label>
+    <label>Questionário<select name="questionnaire_id"><option value="0">Todos</option>{% for item in questionnaires %}<option value="{{ item.id }}" {{ 'selected' if filters.questionnaire_id == item.id else '' }}>{{ item.name }}</option>{% endfor %}</select></label>
+    <label>Segmento<select name="segment_id"><option value="0">Todos</option>{% for item in segments %}<option value="{{ item.id }}" {{ 'selected' if filters.segment_id == item.id else '' }}>{{ item.name }}</option>{% endfor %}</select></label>
+    <label>Canal<select name="channel"><option value="">Todos</option><option value="whatsapp" {{ 'selected' if filters.channel == 'whatsapp' else '' }}>WhatsApp</option><option value="interviewer" {{ 'selected' if filters.channel == 'interviewer' else '' }}>Entrevistador</option><option value="kiosk" {{ 'selected' if filters.channel == 'kiosk' else '' }}>Totem</option></select></label>
+    <label>Visão<select name="scope"><option value="production" {{ 'selected' if filters.scope == 'production' else '' }}>Produção</option><option value="tests" {{ 'selected' if filters.scope == 'tests' else '' }}>Somente testes</option><option value="all" {{ 'selected' if filters.scope == 'all' else '' }}>Produção e testes</option></select></label>
+    <label>De<input type="date" name="date_from" value="{{ filters.date_from }}"></label><label>Até<input type="date" name="date_to" value="{{ filters.date_to }}"></label>
+    <div class="schedule-filter-actions"><button class="btn primary">Filtrar</button><a class="btn ghost" href="/agendamentos">Limpar</a></div>
+  </form>
+</section>
+
+<section class="panel schedule-list-panel">
+  <div class="panel-head"><div><h2>Execuções</h2><p>{{ total }} registro(s) nesta visão · até 50 por página.</p></div><span class="soft-badge">Página {{ page }} de {{ page_count }}</span></div>
+  <div class="schedule-list">
+  {% for row in rows %}{% set item = row.execution %}
+    <article class="schedule-row {{ item.status }} {{ 'test' if item.is_test else '' }}">
+      <div class="schedule-time"><small>{{ item.scheduled_at|datebr('%d/%m/%Y') }}</small><strong>{{ item.scheduled_at|datebr('%H:%M') }}</strong><span>{{ item.channel }}</span></div>
+      <div class="schedule-main">
+        <div class="schedule-title"><div><span class="status {{ item.status }}">{{ status_labels.get(item.status,item.status) }}</span>{% if item.is_test %}<span class="schedule-test-badge">TESTE</span>{% endif %}<h3>{{ item.questionnaire_version.name if item.questionnaire_version else item.questionnaire.name }}</h3></div><b>#{{ item.id }}</b></div>
+        <p><a href="{{ '/leads/' ~ item.lead.id if item.lead and not item.is_test else '#' }}">{{ item.lead.name if item.lead else 'Participante anônimo' }}</a>{% if item.pet %} · pet {{ item.pet.name }}{% endif %} · {{ item.lead.phone_normalized if item.lead else 'sem telefone' }}</p>
+        <div class="schedule-meta"><span><b>Origem</b>{% if row.origin_url %}<a href="{{ row.origin_url }}">{{ row.origin_kind }} · {{ row.origin_label }}</a>{% else %}{{ row.origin_kind }} · {{ row.origin_label }}{% endif %}</span><span><b>Roteiro</b>v{{ item.questionnaire_version.version_number if item.questionnaire_version else '—' }} · {{ row.question_count }} pergunta(s)</span><span><b>Progresso</b>{{ [item.current_position, row.question_count]|min }}/{{ row.question_count }}</span><span><b>Envio</b>{{ queue_labels.get(row.queue.status,row.queue.status) if row.queue else ('Ainda não entrou na fila' if item.status == 'scheduled' else 'Sem mensagem') }}</span></div>
+        {% if item.status == 'blocked' and item.test_label %}<div class="schedule-problem">{{ item.test_label }}</div>{% elif row.queue and row.queue.status == 'failed' %}<div class="schedule-problem">{{ row.queue.error_message or 'Falha no envio pela Z-API.' }}</div>{% endif %}
+      </div>
+      <div class="schedule-actions">
+        {% if item.is_test %}<a class="btn ghost compact" href="/questionarios/testes/{{ item.id }}">Ver teste</a>{% endif %}
+        {% if row.can_reschedule %}<form method="post" action="/agendamentos/{{ item.id }}/enviar-agora?next=/agendamentos"><button class="btn secondary compact">Enviar agora</button></form><details><summary class="btn ghost compact">Reagendar</summary><form method="post" action="/agendamentos/{{ item.id }}/reagendar?next=/agendamentos"><label>Nova data e hora<input type="datetime-local" name="scheduled_at" value="{{ item.scheduled_at|datebr('%Y-%m-%dT%H:%M') }}" required></label><button class="btn primary compact">Confirmar</button></form></details>{% endif %}
+        {% if row.can_retry %}<form method="post" action="/agendamentos/{{ item.id }}/repetir-falha?next=/agendamentos"><button class="btn secondary compact">Tentar novamente</button></form>{% endif %}
+        {% if row.can_cancel %}<details><summary class="btn danger ghost compact">Cancelar</summary><form method="post" action="/agendamentos/{{ item.id }}/cancelar?next=/agendamentos"><label>Motivo<input name="reason" minlength="3" required placeholder="Informe o motivo"></label><button class="btn danger compact">Cancelar execução</button></form></details>{% endif %}
+      </div>
+    </article>
+  {% else %}<div class="empty-state"><span>{{ icon('calendar') }}</span><h3>Nenhuma execução encontrada</h3><p>Altere os filtros ou crie um teste real do WhatsApp.</p></div>{% endfor %}
+  </div>
+  {% if page_count > 1 %}<nav class="schedule-pagination">{% if page > 1 %}<a class="btn ghost" href="{{ request.url.include_query_params(page=page-1) }}">← Anterior</a>{% endif %}<span>{{ page }} / {{ page_count }}</span>{% if page < page_count %}<a class="btn ghost" href="{{ request.url.include_query_params(page=page+1) }}">Próxima →</a>{% endif %}</nav>{% endif %}
+</section>
+
+<div class="schedule-lower-grid">
+  <section class="panel"><div class="panel-head"><div><h2>Por questionário</h2><p>Volume, pendências e conclusão por roteiro congelado.</p></div><a href="/questionarios">Gerenciar</a></div><div class="schedule-questionnaires">{% for item,total_count,scheduled_count,active_count,completed_count in questionnaire_summary %}<a href="/agendamentos?questionnaire_id={{ item.id }}"><span><strong>{{ item.name }}</strong><small>{{ total_count }} execução(ões)</small></span><i><b>{{ scheduled_count or 0 }}</b> agendada(s)</i><i><b>{{ active_count or 0 }}</b> em andamento</i><i><b>{{ completed_count or 0 }}</b> concluída(s)</i></a>{% else %}<div class="empty-block">Nenhuma execução para resumir.</div>{% endfor %}</div></section>
+  <section class="panel"><div class="panel-head"><div><h2>Campanhas e segmentos</h2><p>Programações que geram execuções nesta mesma agenda.</p></div><a href="/segmentos">Gerenciar</a></div><div class="schedule-campaigns">{% for item in campaigns %}<a href="/agendamentos?origin=campaign&segment_id={{ item.segment_id }}"><span class="status {{ item.status }}">{{ item.status }}</span><strong>{{ item.name }}</strong><p>{{ item.segment.name }} · {{ item.questionnaire.name }}</p><small>Próxima: {{ item.next_run_at|datebr }} · último lote: {{ item.last_created_count }}</small></a>{% else %}<div class="empty-block">Nenhuma campanha configurada.</div>{% endfor %}</div></section>
+</div>
+
+<div class="modal-backdrop" data-schedule-test-modal hidden><section class="modal-card schedule-test-modal" role="dialog" aria-modal="true" aria-labelledby="schedule-test-title"><header><div><span class="eyebrow">LABORATÓRIO REAL</span><h2 id="schedule-test-title">Testar roteiro no WhatsApp</h2><p>A execução fica marcada como teste e não entra em métricas, segmentos, alertas ou limites de produção.</p></div><button class="icon-button" type="button" data-close-schedule-test aria-label="Fechar">{{ icon('close') }}</button></header><form method="post" action="/agendamentos/testar" class="form-stack"><label>Questionário<select name="questionnaire_id" required><option value="">Selecione...</option>{% for item in whatsapp_questionnaires %}<option value="{{ item.id }}">{{ item.name }}</option>{% endfor %}</select></label><label>Número autorizado<input name="phone" inputmode="tel" required placeholder="(62) 99999-9999"></label><div class="notice-box">Será usada a versão publicada atual e o andamento aparecerá pergunta a pergunta.</div><footer><button class="btn ghost" type="button" data-close-schedule-test>Cancelar</button><button class="btn primary">Iniciar teste real</button></footer></form></section></div>
+{% endblock %}
+{% block scripts %}<script src="/static/js/schedules.js?v=3.6.0"></script>{% endblock %}

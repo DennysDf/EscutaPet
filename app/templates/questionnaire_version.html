@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ version.name }} · versão {{ version.version_number }}{% endblock %}
+{% block page_title %}{{ version.name }} · versão {{ version.version_number }}{% endblock %}
+{% block page_subtitle %}Publicação imutável em modo somente leitura{% endblock %}
+{% block top_actions %}<a class="btn ghost" href="/questionarios/{{ version.questionnaire_id }}/editar">Voltar ao editor</a>{% endblock %}
+{% block content %}
+<section class="panel version-readonly-head">
+  <div class="detail-grid">
+    <div><small>Status</small><strong>{{ 'Histórico migrado' if version.status == 'historical' else 'Publicada' }}</strong></div>
+    <div><small>Publicada em</small><strong>{{ version.published_at|datebr }}</strong></div>
+    <div><small>Responsável</small><strong>{{ author.name if author else 'Sistema' }}</strong></div>
+    <div><small>Execuções</small><strong>{{ execution_count }}</strong></div>
+  </div>
+  <div class="notice-box"><strong>Versão congelada:</strong> textos, ordem, opções, regras, canais, alertas e mensagens abaixo não podem ser alterados.</div>
+</section>
+<section class="panel">
+  <div class="section-title"><div><h2>Configuração publicada</h2><p>{{ version_config.description or 'Sem descrição.' }}</p></div></div>
+  <div class="detail-grid">
+    <div><small>Objetivo</small><strong>{{ version_config.objective }}</strong></div>
+    <div><small>Resposta</small><strong>{{ version_config.response_mode }}</strong></div>
+    <div><small>Disparo</small><strong>{{ version_config.trigger_type }}</strong></div>
+    <div><small>Perguntas</small><strong>{{ questions|length }}</strong></div>
+  </div>
+</section>
+<section class="panel">
+  <div class="section-title"><div><h2>Perguntas congeladas</h2><p>A identidade original também é preservada para condições e histórico.</p></div></div>
+  <div class="version-question-list">
+  {% for question in questions %}
+    <article class="version-question-card"><span>{{ loop.index }}</span><div><h3>{{ question.text }}</h3><p>{{ question.type }} · {{ 'obrigatória' if question.required else 'opcional' }}{% if question.data_binding %} · {{ question.data_binding }}{% endif %}</p>{% set items = question.options_json|from_json %}{% if items %}<ul>{% for option in items %}<li>{{ option.label or option.value }} <small>({{ option.value or option.label }})</small></li>{% endfor %}</ul>{% endif %}</div></article>
+  {% endfor %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Usuários · EscutaPet{% endblock %}
+{% block page_title %}Usuários e acessos{% endblock %}
+{% block page_subtitle %}Perfis, cidades autorizadas e segurança da equipe{% endblock %}
+{% block content %}
+<section class="two-columns reverse-mobile">
+  <article class="panel">
+    <div class="panel-head"><div><h2>Novo usuário</h2><p>Crie um acesso e limite sua visão às cidades necessárias.</p></div></div>
+    <form method="post" class="form-stack">
+      <div class="form-grid">
+        <label>Nome<input name="name" required></label>
+        <label>Usuário<input name="username" required autocomplete="off"></label>
+        <label>E-mail<input type="email" name="email"></label>
+        <label>Telefone<input name="phone" inputmode="tel"></label>
+        <label>Senha inicial<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
+        <label>Perfil<select name="role"><option value="operator">Operador</option><option value="interviewer">Entrevistador</option><option value="admin">Administrador</option></select></label>
+        <label class="span-2">Fuso horário<select name="timezone_name"><option value="">Usar padrão do sistema</option>{% for value,label in timezone_options %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+      </div>
+      <label class="check-card"><input type="checkbox" name="all_cities" checked data-all-cities><span><strong>Acesso a todas as cidades</strong><small>Administradores sempre enxergam toda a operação.</small></span></label>
+      <fieldset class="city-scope" data-city-scope>
+        <legend>Cidades autorizadas</legend>
+        {% for city in cities %}<label><input type="checkbox" name="city_ids" value="{{ city.id }}"> {{ city.name }}/{{ city.state }}</label>{% else %}<small>Cadastre cidades em Pontos de coleta.</small>{% endfor %}
+      </fieldset>
+      <button class="btn primary">Criar usuário</button>
+    </form>
+  </article>
+  <div class="user-grid">
+    {% for item in users %}
+    {% set selected_cities = item.city_ids_json|from_json %}
+    <article class="user-card user-card-editable">
+      <div class="user-summary">
+        <span class="avatar" style="--avatar-color:{{ item.avatar_color }}">{{ item.name[:1]|upper }}</span>
+        <div><strong>{{ item.name }}</strong><small>@{{ item.username }} · {{ item.email or 'sem e-mail' }}</small><span class="pill">{{ {'admin':'Administrador','operator':'Operador','interviewer':'Entrevistador'}.get(item.role, item.role) }}</span></div>
+        <span class="status {{ 'active' if item.active else 'paused' }}">{{ 'ativo' if item.active else 'inativo' }}</span>
+      </div>
+      <form method="post" action="/usuarios/{{ item.id }}/editar" class="form-stack compact-form">
+        <div class="form-grid">
+          <label>Nome<input name="name" value="{{ item.name }}" required></label>
+          <label>Perfil<select name="role"><option value="operator" {{ 'selected' if item.role == 'operator' else '' }}>Operador</option><option value="interviewer" {{ 'selected' if item.role == 'interviewer' else '' }}>Entrevistador</option><option value="admin" {{ 'selected' if item.role == 'admin' else '' }}>Administrador</option></select></label>
+          <label>E-mail<input type="email" name="email" value="{{ item.email or '' }}"></label>
+          <label>Telefone<input name="phone" value="{{ item.phone or '' }}"></label>
+          <label>Fuso horário<select name="timezone_name"><option value="">Padrão do sistema</option>{% for value,label in timezone_options %}<option value="{{ value }}" {{ 'selected' if item.timezone_name == value else '' }}>{{ label }}</option>{% endfor %}</select></label>
+          <label>Nova senha<input type="password" name="password" minlength="8" placeholder="Deixe vazio para preservar"></label>
+        </div>
+        <div class="inline-checks">
+          <label><input type="checkbox" name="active" {{ 'checked' if item.active else '' }}> Ativo</label>
+          <label><input type="checkbox" name="all_cities" data-all-cities {{ 'checked' if item.all_cities else '' }}> Todas as cidades</label>
+        </div>
+        <fieldset class="city-scope" data-city-scope>
+          <legend>Cidades autorizadas</legend>
+          {% for city in cities %}<label><input type="checkbox" name="city_ids" value="{{ city.id }}" {{ 'checked' if city.id in selected_cities else '' }}> {{ city.name }}/{{ city.state }}</label>{% endfor %}
+        </fieldset>
+        <button class="btn secondary">Salvar acesso</button>
+      </form>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('form').forEach(form => {
+  const all = form.querySelector('[data-all-cities]');
+  const scope = form.querySelector('[data-city-scope]');
+  if (!all || !scope) return;
+  const sync = () => { scope.hidden = all.checked; };
+  all.addEventListener('change', sync); sync();
+});
+</script>
+{% endblock %}

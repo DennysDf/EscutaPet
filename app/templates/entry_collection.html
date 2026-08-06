@@ -1,0 +1,56 @@
+{% extends "public_base.html" %}
+{% macro question_control(question, field_name, pet=false) -%}
+  {% set binding = question.data_binding or '' %}
+  {% set opts = question_options.get(question.id, []) %}
+  <label class="{{ 'span-2' if question.type == 'text' and not binding else '' }}">
+    {{ question.text }}
+    {% if question.type == 'choice' %}
+      <select name="{{ field_name }}" data-binding="{{ binding }}" {{ 'required' if question.required else '' }}>
+        <option value="">Selecione</option>
+        {% for item in opts %}<option value="{{ item.value or item.label }}">{{ item.label }}</option>{% endfor %}
+      </select>
+    {% elif question.type == 'yes_no' %}
+      <select name="{{ field_name }}" data-binding="{{ binding }}" {{ 'required' if question.required else '' }}><option value="">Selecione</option><option value="sim">Sim</option><option value="não">Não</option></select>
+    {% elif question.type in ['score','stars'] %}
+      <input type="number" name="{{ field_name }}" data-binding="{{ binding }}" min="{{ question.min_score }}" max="{{ question.max_score }}" {{ 'required' if question.required else '' }}>
+    {% elif binding == 'lead.phone' %}
+      <div class="input-action-row"><input name="{{ field_name }}" data-binding="{{ binding }}" required inputmode="tel" autocomplete="tel" placeholder="(62) 99999-9999">{% if mode == 'interviewer' and flow.allow_existing_lookup %}<button type="button" class="btn ghost" data-lookup-lead>Localizar cadastro</button>{% endif %}</div><small data-lookup-message>{{ question.help_text or '' }}</small>
+    {% elif question.type == 'text' and not binding %}
+      <textarea name="{{ field_name }}" data-binding="{{ binding }}" rows="3" {{ 'required' if question.required else '' }}></textarea>
+      {% if question.help_text %}<small>{{ question.help_text }}</small>{% endif %}
+    {% else %}
+      <input name="{{ field_name }}" data-binding="{{ binding }}" {{ 'required' if question.required else '' }} {% if binding == 'lead.name' %}autocomplete="name"{% endif %}>
+      {% if question.help_text %}<small>{{ question.help_text }}</small>{% endif %}
+    {% endif %}
+  </label>
+{%- endmacro %}
+{% block title %}{{ flow.name }} · EscutaPet{% endblock %}
+{% block content %}
+<main class="entry-shell" data-entry-flow data-max-pets="{{ flow.max_pets }}" data-lookup="{{ 1 if flow.allow_existing_lookup else 0 }}">
+  <header class="entry-hero" style="--device-brand:{{ device.primary_color if device else system.primary_color }}">{% if system.logo_icon_file %}<img class="public-brand-logo" src="/branding/{{ system.logo_icon_file }}?v={{ system.branding_version }}" alt="{{ system.product_name }}">{% else %}<div class="brand-mark large">E</div>{% endif %}<span class="eyebrow">{{ 'COLETA ASSISTIDA' if mode == 'interviewer' else system.organization_name }}</span><h1>{{ flow.welcome_title }}</h1><p>{{ flow.welcome_text }}</p></header>
+  <form method="post" action="{{ form_action }}" class="entry-form">
+    <input type="hidden" name="consent_schema" value="3.6.0">
+    {% if test_scope %}<input type="hidden" name="test_scope" value="{{ test_scope }}"><div class="notice-box"><strong>Laboratório:</strong> este teste encerra após o cadastro e não dispara confirmação nem ações.</div>{% endif %}
+    {% if registration_version %}<input type="hidden" name="registration_version_id" value="{{ registration_version.id }}">{% endif %}
+    <section class="entry-step active" data-step="1"><div class="entry-step-head"><span>1</span><div><h2>{{ registration.name if registration else 'Cadastro' }}</h2><p>{{ registration.description if registration else 'Informe somente os dados necessários.' }}</p></div></div><div class="form-grid">
+      {% for question in lead_questions %}
+        {% if question.data_binding == 'lead.city' %}
+          <label>{{ question.text }}<select name="registration_vq_{{ question.id }}" data-binding="lead.city" {{ 'disabled' if device and device.city_id else '' }} {{ 'required' if question.required else '' }}><option value="">Selecione</option>{% for city in cities %}<option value="{{ city.id }}" {{ 'selected' if device and device.city_id == city.id else '' }}>{{ city.name }}/{{ city.state }}</option>{% endfor %}</select>{% if device and device.city_id %}<input type="hidden" name="registration_vq_{{ question.id }}" value="{{ device.city_id }}"><small>Definida pelo ponto de coleta.</small>{% endif %}</label>
+        {% else %}
+          {{ question_control(question, 'registration_vq_' ~ question.id) }}
+        {% endif %}
+      {% endfor %}
+      {% if mode == 'interviewer' %}<label class="span-2">Observação interna<textarea name="operator_notes" rows="2" placeholder="Opcional; não aparece para o entrevistado."></textarea></label>{% endif %}
+    </div><div class="entry-nav"><span></span><button type="button" class="btn primary large" data-next-step>Continuar</button></div></section>
+
+    {% if pet_questions %}
+    <section class="entry-step" data-step="2"><div class="entry-step-head"><span>2</span><div><h2>Pets e atendimento</h2><p>Adicione somente os pets relacionados a este cadastro.</p></div></div><div class="pet-repeat-list" data-pet-list></div><button type="button" class="btn secondary" data-add-pet>+ Adicionar outro pet</button>{% if flow.allow_no_pet %}<label class="check-card"><input type="checkbox" data-no-pet><span><strong>Não tenho ou não estou acompanhando um pet agora</strong></span></label>{% endif %}<div class="entry-nav"><button type="button" class="btn ghost" data-prev-step>Voltar</button><button type="button" class="btn primary large" data-next-step>Continuar</button></div></section>
+    {% endif %}
+
+    <section class="entry-step" data-step="{{ 3 if pet_questions else 2 }}"><div class="entry-step-head"><span>{{ 3 if pet_questions else 2 }}</span><div><h2>{{ 'Consentimentos' if flow.consent_research_enabled or flow.consent_marketing_enabled or flow.consent_terms_enabled else 'Revisão' }}</h2><p>Leia e escolha separadamente cada finalidade.</p></div></div><div class="consent-stack">{% if flow.consent_terms_enabled %}<label class="check-card prominent"><input type="checkbox" name="consent_terms" required><span><strong>Li e aceito os termos deste atendimento.</strong><small>Versão dos termos: {{ flow.consent_terms_version }}.</small></span></label>{% endif %}{% if flow.consent_research_enabled %}<label class="check-card prominent"><input type="checkbox" name="consent_research" required><span><strong>{{ flow.consent_research_text }}</strong><small>Você pode cancelar futuras mensagens respondendo SAIR.</small></span></label>{% endif %}{% if flow.consent_marketing_enabled %}<label class="check-card"><input type="checkbox" name="consent_marketing"><span><strong>{{ flow.consent_marketing_text }}</strong><small>Opcional e independente das pesquisas relacionadas ao atendimento.</small></span></label>{% endif %}</div><div class="review-box"><strong>Antes de concluir</strong><p>{{ 'Enviaremos uma mensagem para confirmar o WhatsApp. ' if flow.phone_verification_mode != 'none' else '' }}As perguntas complementares deste cadastro ficam visíveis somente no histórico identificado do lead.</p></div><div class="entry-nav"><button type="button" class="btn ghost" data-prev-step>Voltar</button><button class="btn primary large">Salvar e continuar</button></div></section>
+  </form>
+
+  {% if pet_questions %}<template id="pet-card-template"><article class="pet-entry-card"><div class="pet-entry-head"><div><span class="pet-number"></span><strong>Pet</strong></div><button type="button" class="icon-button danger" data-remove-pet title="Remover pet" aria-label="Remover pet">{{ icon('close') }}</button></div><div class="form-grid">{% for question in pet_questions %}{{ question_control(question, 'pet_vq_' ~ question.id, true) }}{% endfor %}</div></article></template>{% endif %}
+</main>
+{% endblock %}
+{% block scripts %}<script src="/static/js/entry-flow.js?v=3.6.0"></script>{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Importar do WhatsApp · EscutaPet{% endblock %}
+{% block page_title %}Importar leads do WhatsApp{% endblock %}
+{% block page_subtitle %}Prévia segura, sem iniciar pesquisa nem presumir consentimento{% endblock %}
+{% block top_actions %}<a class="btn ghost" href="/leads">Voltar aos leads</a>{% endblock %}
+{% block content %}
+<div class="panel">
+  <div class="panel-head"><div><h2>Origem da consulta</h2><p>A consulta usa a instância Z-API configurada no sistema.</p></div><span class="status {{ 'active' if integration_result.ok else 'paused' }}">{{ 'conectada' if integration_result.ok else 'indisponível' }}</span></div>
+  <div class="button-row"><a class="btn {{ 'primary' if source == 'contacts' else 'ghost' }}" href="?source=contacts">Contatos do aparelho</a><a class="btn {{ 'primary' if source == 'chats' else 'ghost' }}" href="?source=chats">Todas as conversas</a><a class="btn {{ 'primary' if source == 'recent' else 'ghost' }}" href="?source=recent">Últimos 30 dias</a></div>
+  {% if not integration_result.ok %}<div class="warning-box">{{ integration_result.message }}</div>{% endif %}
+</div>
+<form method="post" class="panel form-stack">
+  <div class="panel-head"><div><h2>Escolha o que importar</h2><p>Números já existentes aparecem apenas para conciliação e não são duplicados.</p></div><button class="btn primary">Importar selecionados</button></div>
+  <label>Cidade dos novos leads<select name="city_id" required><option value="">Selecione...</option>{% for city in cities %}<option value="{{ city.id }}">{{ city.name }}/{{ city.state }}</option>{% endfor %}</select><small>Cadastros já existentes mantêm sua cidade atual.</small></label>
+  <div class="import-list">
+    {% for item in candidates %}
+    <label class="import-card">
+      <input type="checkbox" name="candidate" value='{{ item|tojson }}' {{ '' if item.existing else 'checked' }}>
+      {% if item.photo %}<img class="avatar" src="{{ item.photo }}" alt="" referrerpolicy="no-referrer">{% else %}<span class="avatar">{{ item.name[:1]|upper }}</span>{% endif %}
+      <span><strong>{{ item.name }}</strong><small>{{ item.phone }}</small></span>
+      <span class="status {{ 'paused' if item.existing else 'active' }}">{{ 'já existe' if item.existing else 'novo' }}</span>
+    </label>
+    {% else %}<div class="empty-state"><h3>Nenhum contato disponível nesta página</h3></div>{% endfor %}
+  </div>
+  <div class="button-row"><a class="btn ghost" href="?source={{ source }}&page={{ page + 1 }}">Próxima página</a><button class="btn primary">Importar selecionados</button></div>
+</form>
+<div class="notice-box"><strong>Consentimento preservado:</strong> contatos importados entram como “aguardando aceite”; nenhuma pesquisa é enviada automaticamente.</div>
+{% endblock %}

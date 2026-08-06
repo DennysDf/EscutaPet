@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Questionários e fluxos · EscutaPet{% endblock %}
+{% block page_title %}{{ 'Itens arquivados' if showing_archived else 'Questionários e fluxos' }}{% endblock %}
+{% block page_subtitle %}Pesquisas e captação de leads em uma configuração simples{% endblock %}
+{% block top_actions %}<div class="top-action-group">{% if showing_archived %}<a class="btn ghost" href="/questionarios">Voltar aos ativos</a>{% else %}<a class="btn ghost" href="/questionarios?arquivados=1">Arquivados ({{ archived_count }})</a><a class="btn secondary" href="/fluxos/novo">+ Fluxo de entrada</a><a class="btn primary" href="/questionarios/novo">+ Questionário</a>{% endif %}</div>{% endblock %}
+{% block content %}
+{% if not showing_archived %}<div class="intro-banner"><div><span class="eyebrow">JORNADAS PERSONALIZÁVEIS</span><h2>Cadastre somente o necessário e acrescente pesquisas quando fizer sentido.</h2><p>O Cadastro estruturado alimenta responsável, pets e atendimento. As demais ações podem ocorrer na tela, no WhatsApp ou depender de uma resposta anterior.</p></div><div class="flow-mini"><span>Cadastro</span><b>→</b><span>Confirmação</span><b>→</b><span>Condição</span><b>→</b><span>Acompanhamento</span></div></div>{% endif %}
+
+<section class="section-block"><div class="panel-head"><div><span class="eyebrow">CAPTAÇÃO E RECEPÇÃO</span><h2>Fluxos de entrada</h2><p>Usados no totem, entrevistador e laboratório.</p></div>{% if not showing_archived %}<a class="btn secondary" href="/fluxos/novo">Criar fluxo</a>{% endif %}</div>
+<div class="questionnaire-grid flow-grid">
+{% for flow, sessions in flow_rows %}
+  <article class="questionnaire-card flow-card">
+    <div class="questionnaire-head"><div><span class="objective registration">fluxo de entrada</span><span class="status {{ flow.status }}">{{ flow.status }}</span></div><a class="icon-button" href="/fluxos/{{ flow.id }}/editar" title="Editar fluxo" aria-label="Editar fluxo">{{ icon('edit') }}</a></div>
+    <h3>{{ flow.name }}</h3><p>{{ flow.description or 'Cadastro estruturado com ações posteriores.' }}</p>
+    <div class="questionnaire-meta"><div><small>Cadastro</small><strong>{{ flow.registration_questionnaire.name if flow.registration_questionnaire else 'Não configurado' }}</strong></div><div><small>Perfis</small><strong>{{ (flow.profiles_json|from_json)|join(', ') }}</strong></div><div><small>Coletas</small><strong>{{ sessions or 0 }}</strong></div></div>
+    <div class="flow-action-summary">{% for action in flow.actions|selectattr('active')|sort(attribute='position') %}<span><strong>{{ loop.index }}. {{ action.questionnaire.name if action.questionnaire else 'Questionário removido' }}</strong> · {{ action.channel }} · {% if action.trigger == 'after_action' %}após outra resposta{% elif action.trigger == 'after_confirmation' %}após confirmação{% else %}após cadastro{% endif %}{% if action.delay_value %} + {{ action.delay_value }} {{ {'minutes':'min','hours':'h','days':'dia(s)'}.get(action.delay_unit,action.delay_unit) }}{% endif %}{% if action.per_pet %} · por pet{% endif %}</span>{% else %}<span>Nenhuma ação configurada.</span>{% endfor %}</div>
+    <div class="card-actions">
+      {% if flow.status != 'archived' %}<a class="btn ghost" href="/fluxos/{{ flow.id }}/testar">Testar fluxo</a><a class="btn secondary" href="/fluxos/{{ flow.id }}/editar">Editar</a><form method="post" action="/fluxos/{{ flow.id }}/status"><input type="hidden" name="status" value="archived"><button class="btn ghost" title="Arquivar sem apagar o histórico">Arquivar</button></form><form method="post" action="/fluxos/{{ flow.id }}/duplicar"><button class="icon-button" title="Duplicar fluxo" aria-label="Duplicar fluxo">{{ icon('copy') }}</button></form>{% else %}<form method="post" action="/fluxos/{{ flow.id }}/status"><input type="hidden" name="status" value="paused"><button class="btn secondary">Restaurar pausado</button></form>{% endif %}
+    </div>
+  </article>
+{% else %}<div class="empty-state span-all"><span class="empty-icon">{{ icon('plus') }}</span><h3>Nenhum fluxo nesta área</h3></div>{% endfor %}
+</div></section>
+
+<section class="section-block"><div class="panel-head"><div><span class="eyebrow">PESQUISAS E CADASTROS</span><h2>Questionários</h2><p>Um editor para WhatsApp, totem e entrevistador.</p></div>{% if not showing_archived %}<a class="btn primary" href="/questionarios/novo">Criar questionário</a>{% endif %}</div>
+<div class="questionnaire-grid">
+{% for questionnaire, executions, completed in rows %}
+  <article class="questionnaire-card">
+    <div class="questionnaire-head"><div><span class="objective {{ questionnaire.objective }}">{{ 'cadastro estruturado' if questionnaire.objective == 'registration' else questionnaire.objective }}</span><span class="status {{ questionnaire.status }}">{{ questionnaire.status }}</span></div><a class="icon-button" href="/questionarios/{{ questionnaire.id }}/editar" title="Editar questionário" aria-label="Editar questionário">{{ icon('edit') }}</a></div>
+    <h3>{{ questionnaire.name }}</h3><p>{{ questionnaire.description or 'Sem descrição.' }}</p>
+    <div class="questionnaire-meta"><div><small>Canais</small><strong>{{ (questionnaire.channels_json|from_json)|join(', ') }}</strong></div><div><small>Respostas</small><strong>{{ questionnaire.response_mode }}</strong></div><div><small>Concluídas</small><strong>{{ completed or 0 }} / {{ executions or 0 }}</strong></div></div>
+    <div class="card-actions">
+      {% if questionnaire.status != 'archived' %}
+        <a class="btn ghost" href="/questionarios/{{ questionnaire.id }}/testar">Testar na web</a>
+        {% if questionnaire.response_mode != 'anonymous' and 'whatsapp' in questionnaire.channels_json %}<details class="inline-test-menu"><summary class="btn ghost">Testar WhatsApp</summary><form method="post" action="/questionarios/{{ questionnaire.id }}/testar-whatsapp"><label>Número de teste<input name="phone" inputmode="tel" placeholder="(62) 99999-9999" required></label><button class="btn primary">Enviar teste</button></form></details>{% endif %}
+        <a class="btn ghost" href="/agendamentos?questionnaire_id={{ questionnaire.id }}">Ver execuções</a><a class="btn secondary" href="/questionarios/{{ questionnaire.id }}/editar">Editar</a>
+        {% if questionnaire.status == 'active' and 'whatsapp' in questionnaire.channels_json %}<form method="post" action="/questionarios/{{ questionnaire.id }}/disparar"><button class="btn primary">Disparar</button></form>{% endif %}
+        <form method="post" action="/questionarios/{{ questionnaire.id }}/status"><input type="hidden" name="status" value="archived"><button class="btn ghost">Arquivar</button></form>
+        <form method="post" action="/questionarios/{{ questionnaire.id }}/duplicar"><button class="icon-button" title="Duplicar questionário" aria-label="Duplicar questionário">{{ icon('copy') }}</button></form>
+      {% else %}<form method="post" action="/questionarios/{{ questionnaire.id }}/status"><input type="hidden" name="status" value="paused"><button class="btn secondary">Restaurar pausado</button></form>{% endif %}
+    </div>
+  </article>
+{% else %}<div class="empty-state span-all"><span class="empty-icon">{{ icon('template') }}</span><h3>Nenhum questionário nesta área</h3></div>{% endfor %}
+</div></section>
+{% endblock %}

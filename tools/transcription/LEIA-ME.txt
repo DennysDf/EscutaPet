@@ -1,0 +1,15 @@
+TRANSCRICAO LOCAL DO ESCUTAPET 3.6.0
+
+Execute PREPARAR_TRANSCRICAO.bat uma vez no Windows Server.
+
+O instalador baixa de fontes oficiais:
+- whisper.cpp para Windows x64;
+- modelo base multilíngue quantizado;
+- FFmpeg para converter áudios do WhatsApp.
+
+Os binários e o modelo ficam em tools\whisper e tools\ffmpeg. Eles não são
+incluídos no ZIP principal porque ocupam centenas de megabytes.
+
+Depois, reinicie o START.bat, abra /configuracoes e habilite "Áudios ·
+transcrição local". Para uma VPS com 4 vCPU, use 2 threads. A fila processa
+somente um áudio por vez.

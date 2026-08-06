@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+{% block title %}Configurações · EscutaPet{% endblock %}
+{% block page_title %}Configurações{% endblock %}
+{% block page_subtitle %}Identidade, operação e conexão completa com a Z-API{% endblock %}
+{% block content %}
+<div class="settings-grid">
+  <form method="post" action="/configuracoes/geral" class="panel form-stack">
+    <div class="panel-head"><div><h2>Geral</h2><p>Regras globais simples e visíveis.</p></div></div>
+    <div class="form-grid">
+      <label>Nome do produto<input name="product_name" value="{{ system.product_name }}"></label>
+      <label>Organização<input name="organization_name" value="{{ system.organization_name }}"></label>
+      <label>DDI padrão<input name="default_country_code" value="{{ system.default_country_code }}"></label>
+      <label>Respostas mínimas no anônimo<input type="number" name="anonymous_minimum" value="{{ system.anonymous_minimum }}"></label>
+      <label>Silêncio começa às<input type="number" min="0" max="23" name="quiet_start_hour" value="{{ system.quiet_start_hour }}"></label>
+      <label>Silêncio termina às<input type="number" min="0" max="23" name="quiet_end_hour" value="{{ system.quiet_end_hour }}"></label>
+      <label>Máximo de contatos<input type="number" name="contact_cap_count" value="{{ system.contact_cap_count }}"></label>
+      <label>Em quantos dias<input type="number" name="contact_cap_days" value="{{ system.contact_cap_days }}"></label>
+      <label>Fuso horário padrão<select name="timezone_name">{% for value,label in timezone_options %}<option value="{{ value }}" {{ 'selected' if system.timezone_name == value else '' }}>{{ label }}</option>{% endfor %}</select><small>Usado nos agendamentos e por usuários sem fuso próprio.</small></label>
+      <label>Cor principal<input type="color" name="primary_color" value="{{ system.primary_color }}" data-theme-color="primary"></label>
+      <label>Cor complementar dos gradientes<input type="color" name="secondary_color" value="{{ system.secondary_color }}" data-theme-color="secondary"><small>Usada nos gradientes, destaques e detalhes visuais.</small></label>
+      <label>Fundo da navegação<input type="color" name="sidebar_color" value="{{ system.sidebar_color }}" data-theme-color="sidebar"></label>
+      <label>Texto do rodapé<input name="footer_text" value="{{ system.footer_text or '' }}" placeholder="Privacidade e atendimento"></label>
+    </div>
+    <label class="check-card"><input type="checkbox" name="allow_unknown_whatsapp_onboarding" {{ 'checked' if system.allow_unknown_whatsapp_onboarding else '' }}><span><strong>Cadastrar novos números pelo WhatsApp</strong><small>Usa o questionário marcado como “Novo WhatsApp”.</small></span></label>
+    <button class="btn primary">Salvar configurações gerais</button>
+  </form>
+
+  <form method="post" action="/configuracoes/marca" enctype="multipart/form-data" class="panel form-stack branding-form" data-branding-form>
+    <div class="panel-head"><div><h2>Logos e aplicativo</h2><p>Personalize o menu, as telas públicas, o favicon e o aplicativo instalável.</p></div></div>
+    <div class="brand-upload-grid">
+      {% for role,title,hint,current in [('horizontal','Logo horizontal','Recomendada: 800 × 220 px. Aparece no menu expandido.',system.logo_horizontal_file),('vertical','Logo vertical','Recomendada: 360 × 520 px. Aparece no menu recolhido.',system.logo_vertical_file),('icon','Ícone','Recomendado: quadrado, 512 × 512 px. Gera PWA e favicon.',system.logo_icon_file)] %}
+      <section class="brand-upload-card" data-logo-card="{{ role }}">
+        <div class="brand-preview {{ role }}">{% if current %}<img src="/branding/{{ current }}?v={{ system.branding_version }}" alt="Prévia de {{ title|lower }}">{% else %}<span>{{ 'E' if role == 'icon' else 'Sem logo' }}</span>{% endif %}</div>
+        <div><strong>{{ title }}</strong><small>{{ hint }}</small></div>
+        <label class="btn secondary file-button">Selecionar SVG ou imagem<input type="file" name="logo_{{ role }}" accept=".svg,image/svg+xml,image/png,image/jpeg,image/webp" data-logo-input="{{ role }}"></label>
+        <input type="file" name="logo_{{ role }}_preview" accept="image/png" data-logo-preview="{{ role }}" hidden>
+        {% if current %}<label class="remove-logo"><input type="checkbox" name="remove_{{ role }}"> Remover esta logo</label>{% endif %}
+      </section>
+      {% endfor %}
+    </div>
+    <div class="notice-box">Arquivos SVG são verificados antes de serem salvos. Ao enviar o ícone, o navegador prepara uma versão PNG e o sistema gera automaticamente os tamanhos do PWA e do favicon.</div>
+    <button class="btn primary" type="submit">Salvar identidade visual</button>
+  </form>
+
+  <form method="post" action="/configuracoes/zapi" class="panel form-stack">
+    <div class="panel-head">
+      <div><h2>WhatsApp · Z-API</h2><p>Credenciais, botões, callbacks e leitura automática.</p></div>
+      <span class="status {{ 'active' if zapi.connected else 'paused' }}">{{ 'conectada' if zapi.connected else 'desconectada' }}</span>
+    </div>
+    <label class="check-card"><input type="checkbox" name="enabled" {{ 'checked' if zapi.enabled else '' }}><span><strong>Habilitar integração</strong><small>Quando desabilitada, os envios podem ser simulados.</small></span></label>
+    <label>ID da instância<input name="instance_id" value="{{ zapi.instance_id or '' }}"></label>
+    <label>Token da instância<input type="password" name="token" placeholder="Deixe vazio para preservar"></label>
+    <label>Client-Token<input type="password" name="client_token" placeholder="Deixe vazio para preservar"></label>
+    <fieldset class="endpoint-config" data-endpoint-config>
+      <legend>Endpoint de envio da Z-API</legend>
+      <div class="choice-row" role="radiogroup" aria-label="Modo do endpoint de envio">
+        <label class="choice-pill"><input type="radio" name="send_endpoint_mode" value="automatic" {{ 'checked' if zapi.send_endpoint_mode != 'manual' else '' }}><span>Automático</span></label>
+        <label class="choice-pill"><input type="radio" name="send_endpoint_mode" value="manual" {{ 'checked' if zapi.send_endpoint_mode == 'manual' else '' }}><span>Manual</span></label>
+      </div>
+      <label data-auto-endpoint>Endereço calculado
+        <input value="{{ zapi_send_endpoint }}" readonly>
+      </label>
+      <label data-manual-endpoint>Endereço manual
+        <input name="manual_send_endpoint" value="{{ zapi.manual_send_endpoint or '' }}" placeholder="https://api.z-api.io/instances/{instance_id}/token/{token}/{action}" inputmode="url" autocomplete="off">
+      </label>
+      <small>No modo manual, informe uma URL terminada em <code>/send-text</code> ou um modelo com <code>{action}</code>. O sistema adapta a ação para texto, botões, listas e mídias. Diagnósticos e webhooks continuam usando o ID e o token.</small>
+    </fieldset>
+    <label>Endereço público desta aplicação
+      <div class="input-action-row">
+        <input id="zapi-public-base-url" name="public_base_url" value="{{ public_base_form_value }}" placeholder="https://pesquisa.seudominio.com" inputmode="url">
+        {% if detected_is_public %}<button class="btn ghost" type="button" data-use-public-origin="{{ detected_base_url|e }}">Usar domínio atual</button>{% endif %}
+      </div>
+      <small>É o domínio onde este sistema abre. O sistema usa esse endereço para receber os callbacks da Z-API.</small>
+    </label>
+    {% if detected_base_url %}
+    <div class="detected-origin-card">
+      <div><span>Domínio detectado nesta sessão</span><code>{{ detected_base_url }}</code></div>
+      <strong class="status {{ 'active' if detected_is_public else 'paused' }}">{{ 'HTTPS público' if detected_is_public else 'local ou não público' }}</strong>
+    </div>
+    {% endif %}
+    {% if public_origin_changed %}<div class="notice-box">O domínio atual é diferente do endereço anteriormente salvo. Ao configurar os webhooks, o sistema usará automaticamente o domínio atual.</div>{% endif %}
+    {% if public_base_error %}<div class="warning-box">A configuração anterior não era um endereço da aplicação. Ao configurar os webhooks, o sistema usará o domínio atual detectado.</div>{% endif %}
+    <div class="check-stack">
+      <label class="check-card"><input type="checkbox" name="use_buttons" {{ 'checked' if zapi.use_buttons else '' }}><span><strong>Usar botões e listas</strong><small>Permite que cada pergunta escolha botões Z-API, lista ou texto.</small></span></label>
+      <label class="check-card"><input type="checkbox" name="button_terms_accepted" {{ 'checked' if zapi.button_terms_accepted else '' }}><span><strong>Termos de botões aceitos</strong><small>Sem esta confirmação, o sistema usa texto numerado como fallback.</small></span></label>
+      <label class="check-card"><input type="checkbox" name="notify_sent_by_me" {{ 'checked' if zapi.notify_sent_by_me else '' }}><span><strong>Receber também mensagens enviadas por mim</strong><small>Útil para espelhar conversas; respostas próprias não entram como resposta de questionário.</small></span></label>
+      <label class="check-card"><input type="checkbox" name="auto_read_message" {{ 'checked' if zapi.auto_read_message else '' }}><span><strong>Marcar mensagens como lidas automaticamente</strong></span></label>
+      <label class="check-card"><input type="checkbox" name="simulate_when_disabled" {{ 'checked' if zapi.simulate_when_disabled else '' }}><span><strong>Simular envios quando desativada</strong><small>Ideal para validar o sistema antes da conexão real.</small></span></label>
+      <label class="check-card"><input type="checkbox" name="download_received_media" {{ 'checked' if zapi.download_received_media else '' }}><span><strong>Salvar mídias recebidas</strong><small>Baixa fotos, áudios, vídeos e documentos antes da expiração da Z-API.</small></span></label>
+    </div>
+    <div class="form-grid">
+      <label>Limite por mídia (MB)<input type="number" min="1" max="200" name="max_media_mb" value="{{ zapi.max_media_mb }}"></label>
+      <label>Retenção local (dias)<input type="number" min="30" max="3650" name="media_retention_days" value="{{ zapi.media_retention_days }}"></label>
+    </div>
+    <button class="btn primary">Salvar Z-API</button>
+  </form>
+
+  <form method="post" action="/configuracoes/transcricao" class="panel form-stack transcription-settings">
+    <div class="panel-head">
+      <div><h2>Áudios · transcrição local</h2><p>Transforma áudios em texto numa fila separada e usa o resultado nos segmentos inteligentes.</p></div>
+      <span class="status {{ 'active' if transcription_info.ready and transcription.enabled else 'paused' }}">{{ 'pronta' if transcription_info.ready and transcription.enabled else ('desativada' if not transcription.enabled else 'incompleta') }}</span>
+    </div>
+    <label class="check-card"><input type="checkbox" name="enabled" {{ 'checked' if transcription.enabled else '' }}><span><strong>Habilitar transcrição em segundo plano</strong><small>O worker processa somente um áudio de cada vez para preservar o servidor.</small></span></label>
+    <div class="check-stack">
+      <label class="check-card"><input type="checkbox" name="transcribe_received" {{ 'checked' if transcription.transcribe_received else '' }}><span><strong>Transcrever áudios recebidos</strong><small>Inclui respostas de questionários e conversas livres.</small></span></label>
+      <label class="check-card"><input type="checkbox" name="transcribe_sent" {{ 'checked' if transcription.transcribe_sent else '' }}><span><strong>Transcrever áudios enviados</strong><small>Serve para consulta; mensagens da equipe não segmentam o lead.</small></span></label>
+      <label class="check-card"><input type="checkbox" name="segment_received_text" {{ 'checked' if transcription.segment_received_text else '' }}><span><strong>Segmentar mensagens de texto livres</strong><small>Aplica os segmentos inteligentes também fora de questionários.</small></span></label>
+      <label class="check-card"><input type="checkbox" name="segment_transcripts" {{ 'checked' if transcription.segment_transcripts else '' }}><span><strong>Segmentar transcrições recebidas</strong><small>Registra a mensagem e a origem que levaram o lead ao segmento.</small></span></label>
+    </div>
+    <div class="form-grid">
+      <label>Idioma<input name="language" value="{{ transcription.language or 'pt' }}" maxlength="12"><small>Use <code>pt</code> para português.</small></label>
+      <label>Threads de CPU<input type="number" min="1" max="8" name="threads" value="{{ transcription.threads or 2 }}"><small>Para VPS 4 vCPU, mantenha 2.</small></label>
+      <label>Duração máxima por áudio (segundos)<input type="number" min="30" max="3600" name="max_duration_seconds" value="{{ transcription.max_duration_seconds or 600 }}"></label>
+      <label>Caminho do whisper-cli<input name="executable_path" value="{{ transcription.executable_path or '' }}" placeholder="Automático: tools\whisper\whisper-cli.exe"></label>
+      <label>Caminho do modelo<input name="model_path" value="{{ transcription.model_path or '' }}" placeholder="Automático: tools\whisper\models\ggml-base-q5_1.bin"></label>
+      <label>Caminho do FFmpeg<input name="ffmpeg_path" value="{{ transcription.ffmpeg_path or '' }}" placeholder="Automático: tools\ffmpeg\ffmpeg.exe"></label>
+    </div>
+    <div class="transcription-diagnostic {{ 'ready' if transcription_info.ready else 'warning' }}">
+      <strong>{{ transcription_info.message }}</strong>
+      <small>Whisper: {{ transcription_info.executable or 'não encontrado' }}</small>
+      <small>Modelo: {{ transcription_info.model or 'não encontrado' }}</small>
+      <small>FFmpeg: {{ transcription_info.ffmpeg or 'não encontrado' }}</small>
+      <small>Último sinal do worker: {{ transcription.last_heartbeat_at|datebr }}</small>
+    </div>
+    <div class="transcription-kpis">
+      <span><b>{{ transcription_stats.pending }}</b> aguardando</span><span><b>{{ transcription_stats.processing }}</b> processando</span><span><b>{{ transcription_stats.completed }}</b> concluídas</span><span><b>{{ transcription_stats.failed }}</b> falhas</span>
+    </div>
+    {% if transcription.last_error %}<div class="warning-box"><strong>Último aviso</strong><br>{{ transcription.last_error }}</div>{% endif %}
+    <div class="button-row"><button class="btn primary">Salvar transcrição</button>{% if transcription_stats.failed %}<button class="btn ghost" type="submit" formaction="/configuracoes/transcricao/reprocessar-falhas">Reprocessar falhas</button>{% endif %}</div>
+    <small>Use <code>PREPARAR_TRANSCRICAO.bat</code> uma vez no servidor para baixar o motor, o modelo PT-BR e o FFmpeg.</small>
+  </form>
+
+  <article class="panel zapi-status-card">
+    <div class="panel-head"><div><h2>Estado da instância</h2><p>Conexão, aparelho e conferência remota.</p></div></div>
+    <div class="status-list">
+      <div><span>WhatsApp</span><strong class="status {{ 'active' if zapi.connected else 'paused' }}">{{ 'Conectado' if zapi.connected else 'Desconectado' }}</strong></div>
+      <div><span>Webhooks</span><strong class="status {{ 'active' if zapi.remote_webhooks_ok else 'paused' }}">{{ 'Conferidos' if zapi.remote_webhooks_ok else 'Pendentes' }}</strong></div>
+      <div><span>Aparelho</span><strong>{{ zapi.device_name or 'não identificado' }}</strong></div>
+      <div><span>Número</span><strong>{{ zapi.device_phone or 'não informado' }}</strong></div>
+      <div><span>Último diagnóstico</span><strong>{{ zapi.last_check_at|datebr }}</strong></div>
+      <div><span>Último webhook</span><strong>{{ zapi.last_webhook_at|datebr }}</strong></div>
+      <div><span>Cache Redis</span><strong class="status {{ 'active' if redis_info.online else 'paused' }}">{{ 'Online' if redis_info.online else ('Desativado' if not redis_info.enabled else 'Fallback SQLite') }}</strong></div>
+    </div>
+    <div class="button-row">
+      <form method="post" action="/configuracoes/zapi/testar"><button class="btn secondary">Testar e conferir tudo</button></form>
+      <form method="post" action="/configuracoes/zapi/webhook"><button class="btn primary">Configurar os 5 webhooks</button></form>
+      <form method="post" action="/operacao/processar"><button class="btn ghost">Processar fila agora</button></form>
+    </div>
+    {% if zapi.last_error %}<div class="warning-box"><strong>Último diagnóstico</strong><br>{{ zapi.last_error }}</div>{% endif %}
+  </article>
+
+  <article class="panel qr-connect-card">
+    <div class="panel-head"><div><h2>Conectar WhatsApp por QR Code</h2><p>O QR é solicitado pelo servidor e os tokens não são expostos no navegador.</p></div></div>
+    <div class="qr-stage" data-qr-stage>
+      <div class="qr-placeholder" data-qr-placeholder><span>{{ icon('install') }}</span><strong>QR Code ainda não solicitado</strong><small>Salve as credenciais antes de gerar.</small></div>
+      <img data-qr-image alt="QR Code para conectar o WhatsApp" hidden>
+    </div>
+    <p class="qr-message" data-qr-message>Ao iniciar, o sistema consulta até três vezes em intervalos seguros e interrompe quando a instância conectar.</p>
+    <div class="button-row"><button type="button" class="btn primary" data-generate-qr>Gerar QR Code</button><button type="button" class="btn ghost" data-stop-qr hidden>Parar atualização</button></div>
+  </article>
+
+  <article class="panel span-2">
+    <div class="panel-head"><div><h2>Webhooks desta aplicação</h2><p>O botão usa automaticamente o domínio HTTPS pelo qual você abriu o sistema, cadastra e depois confere estas cinco URLs na Z-API.</p></div></div>
+    {% if webhook_urls %}
+    <div class="webhook-grid">
+      {% for name,url in webhook_urls.items() %}<div><span>{{ {'received':'Mensagens recebidas','delivery':'Envio/falha','status':'Entrega e leitura','connected':'Conectado','disconnected':'Desconectado'}[name] }}</span><code>{{ url }}</code></div>{% endfor %}
+    </div>
+    {% else %}
+    <div class="warning-box">Abra esta aplicação por um domínio HTTPS público ou informe esse domínio no campo acima.</div>
+    {% endif %}
+  </article>
+  <article class="panel span-2">
+    <div class="panel-head"><div><h2>Diagnóstico de callbacks</h2><p>Contagem local por tipo; eventos técnicos filtrados continuam auditáveis.</p></div><span class="pill">{{ ignored_webhooks }} filtrado(s)</span></div>
+    <div class="status-list">{% for event_type,total in webhook_stats %}<div><span>{{ event_type }}</span><strong>{{ total }}</strong></div>{% else %}<div><span>Nenhum webhook recebido ainda.</span><strong>0</strong></div>{% endfor %}</div>
+  </article>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const publicUrlInput = document.getElementById('zapi-public-base-url');
+  document.querySelector('[data-use-public-origin]')?.addEventListener('click', event => {
+    publicUrlInput.value = event.currentTarget.dataset.usePublicOrigin || '';
+    publicUrlInput.focus();
+  });
+  const button = document.querySelector('[data-generate-qr]');
+  const stopButton = document.querySelector('[data-stop-qr]');
+  const image = document.querySelector('[data-qr-image]');
+  const placeholder = document.querySelector('[data-qr-placeholder]');
+  const message = document.querySelector('[data-qr-message]');
+  let timer = null;
+  let attempts = 0;
+  const stop = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+    stopButton.hidden = true;
+    button.disabled = false;
+  };
+  async function requestQr() {
+    attempts += 1;
+    button.disabled = true;
+    stopButton.hidden = false;
+    message.textContent = `Consultando a Z-API (${attempts}/3)...`;
+    try {
+      const response = await fetch('/configuracoes/zapi/qrcode', {headers: {'Accept':'application/json'}});
+      const data = await response.json();
+      if (data.connected) {
+        image.hidden = true;
+        placeholder.hidden = false;
+        placeholder.innerHTML = '<span class="qr-success-mark" aria-hidden="true">✓</span><strong>WhatsApp conectado</strong><small>A instância confirmou a conexão.</small>';
+        message.textContent = data.message;
+        stop();
+        return;
+      }
+      if (data.image) {
+        image.src = data.image;
+        image.hidden = false;
+        placeholder.hidden = true;
+        message.textContent = 'Abra o WhatsApp no celular, acesse Aparelhos conectados e escaneie o QR Code.';
+      } else {
+        message.textContent = data.message || 'Não foi possível obter o QR Code.';
+      }
+      if (attempts < 3) timer = setTimeout(requestQr, 12000);
+      else { message.textContent += ' Atualização automática encerrada; clique novamente para gerar outro QR.'; stop(); }
+    } catch (error) {
+      message.textContent = 'Falha ao consultar o QR Code. Verifique a conexão e as credenciais.';
+      stop();
+    }
+  }
+  button?.addEventListener('click', () => { attempts = 0; stop(); requestQr(); });
+  stopButton?.addEventListener('click', () => { message.textContent = 'Atualização do QR Code interrompida.'; stop(); });
+})();
+</script>
+<script>
+(() => {
+  const form = document.querySelector('[data-branding-form]');
+  if (!form) return;
+  const readImage = file => new Promise((resolve, reject) => {
+    const image = new Image();
+    const url = URL.createObjectURL(file);
+    image.onload = () => { URL.revokeObjectURL(url); resolve(image); };
+    image.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Não foi possível preparar a imagem.')); };
+    image.src = url;
+  });
+  const rasterize = async (file, role) => {
+    const image = await readImage(file);
+    const sizes = {horizontal:[1200,360], vertical:[520,760], icon:[512,512]};
+    const [width,height] = sizes[role];
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const context = canvas.getContext('2d');
+    const scale = Math.min(width / image.naturalWidth, height / image.naturalHeight);
+    const drawWidth = image.naturalWidth * scale, drawHeight = image.naturalHeight * scale;
+    context.drawImage(image, (width-drawWidth)/2, (height-drawHeight)/2, drawWidth, drawHeight);
+    return new Promise(resolve => canvas.toBlob(resolve, 'image/png', .96));
+  };
+  document.querySelectorAll('[data-logo-input]').forEach(input => input.addEventListener('change', async () => {
+    const file = input.files?.[0]; if (!file) return;
+    const card = input.closest('[data-logo-card]');
+    const preview = card.querySelector('.brand-preview');
+    const url = URL.createObjectURL(file);
+    preview.innerHTML = '';
+    const image = new Image(); image.alt = 'Nova prévia'; image.src = url; image.onload = () => URL.revokeObjectURL(url);
+    preview.appendChild(image);
+  }));
+  form.addEventListener('submit', async event => {
+    if (form.dataset.prepared === '1') return;
+    event.preventDefault();
+    const button = form.querySelector('button[type="submit"]');
+    button.disabled = true; button.textContent = 'Preparando imagens…';
+    try {
+      for (const input of form.querySelectorAll('[data-logo-input]')) {
+        const file = input.files?.[0]; if (!file) continue;
+        const role = input.dataset.logoInput;
+        const blob = await rasterize(file, role);
+        const transfer = new DataTransfer();
+        transfer.items.add(new File([blob], `${role}-preview.png`, {type:'image/png'}));
+        form.querySelector(`[data-logo-preview="${role}"]`).files = transfer.files;
+      }
+      form.dataset.prepared = '1'; form.submit();
+    } catch (error) {
+      button.disabled = false; button.textContent = 'Salvar identidade visual';
+      alert(error.message || 'Não foi possível preparar as logos.');
+    }
+  });
+  document.querySelectorAll('[data-theme-color]').forEach(input => input.addEventListener('input', () => {
+    const name = input.dataset.themeColor;
+    document.documentElement.style.setProperty(name === 'primary' ? '--brand' : name === 'secondary' ? '--brand-2' : '--sidebar-bg', input.value);
+  }));
+})();
+</script>
+{% endblock %}

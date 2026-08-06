@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Conversas · EscutaPet{% endblock %}
+{% block styles %}<link rel="stylesheet" href="/static/css/conversations.css?v=3.6.0">{% endblock %}
+{% block page_title %}Conversas{% endblock %}
+{% block page_subtitle %}Atendimento humano, pesquisas e WhatsApp{% endblock %}
+{% block content %}
+<section class="conversation-shell">
+  {% include "_conversation_list.html" %}
+  <main class="conversation-welcome">
+    <div>{{ icon('message-circle') }}<h2>Central de conversas</h2><p>Escolha uma conversa para visualizar o histórico e responder.</p><span>As mensagens são carregadas progressivamente e permanecem vinculadas ao lead.</span></div>
+  </main>
+</section>
+{% endblock %}
+{% block scripts %}<script src="/static/js/conversation-list.js?v=3.6.0"></script>{% endblock %}

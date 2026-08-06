@@ -1,0 +1,29 @@
+<aside class="conversation-sidebar" data-conversation-list data-next-before="{{ initial_next_before or '' }}">
+  <header class="conversation-list-head">
+    <div><span class="eyebrow">ATENDIMENTO</span><h2>Conversas</h2></div>
+    <button class="icon-button" type="button" data-refresh-conversations title="Atualizar" aria-label="Atualizar conversas">{{ icon('rotate') }}</button>
+  </header>
+  <label class="conversation-search">{{ icon('search') }}<input data-conversation-search type="search" placeholder="Buscar conversa" aria-label="Buscar contato, número ou mensagem"></label>
+  <div class="conversation-filters" data-conversation-filters>
+    <button type="button" class="active" data-status="all">Todas</button>
+    <button type="button" data-unread="true">Não lidas</button>
+    <button type="button" data-status="pending">Pendentes</button>
+    <button type="button" data-status="closed">Encerradas</button>
+  </div>
+  <div class="conversation-list" data-conversation-items aria-live="polite">
+    {% for item in conversations %}
+    <a class="conversation-card {{ 'selected' if selected_conversation and item.id == selected_conversation.id else '' }} {{ 'has-unread' if item.unread_count else '' }}" href="/conversas/{{ item.id }}" data-conversation-id="{{ item.id }}" data-status="{{ item.internal_status }}">
+      <span class="lead-avatar">{{ item.lead.name[:1]|upper if item.lead else '?' }}</span>
+      <span class="conversation-copy">
+        <span class="conversation-title"><strong>{{ item.lead.name if item.lead else (item.phone_normalized or 'Contato WhatsApp') }}</strong>{% if item.pinned %}<i title="Conversa fixada">{{ icon('pin') }}</i>{% endif %}</span>
+        <span class="conversation-preview">{{ item.last_message_preview or 'Sem mensagens.' }}</span>
+        <span class="conversation-meta"><small>{{ status_label(item.internal_status) }}</small>{% if assignees.get(item.assigned_user_id) %}<small>{{ assignees.get(item.assigned_user_id).split()[0] }}</small>{% endif %}</span>
+      </span>
+      <span class="conversation-tail"><time data-smart-time datetime="{{ item.last_message_at.isoformat() if item.last_message_at else '' }}">{{ item.last_message_at|datebr if item.last_message_at else '' }}</time>{% if item.unread_count %}<b class="unread">{{ item.unread_count }}</b>{% endif %}</span>
+    </a>
+    {% else %}
+    <div class="conversation-list-empty" data-list-empty>{{ icon('message-circle') }}<strong>Nenhuma conversa</strong><span>As mensagens recebidas aparecerão aqui.</span></div>
+    {% endfor %}
+  </div>
+  <button class="conversation-load-more" type="button" data-load-conversations {{ 'hidden' if not initial_next_before else '' }}><span></span> Carregar mais</button>
+</aside>

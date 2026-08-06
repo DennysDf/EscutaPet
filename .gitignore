@@ -1,0 +1,51 @@
+# Ambiente Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# Segredos e configuração local
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Banco de dados e dados de runtime da aplicação
+app/data/*.sqlite3
+app/data/*.sqlite3-*
+app/data/.session_secret
+app/data/server_manager/
+app/data/logs/
+app/data/media/
+*.log
+
+# Backups locais (snapshots completos, não devem ir para o repositório)
+backups/
+
+# Binários de terceiros baixados/vendorizados para o build Windows
+tools/ffmpeg/
+tools/redis/
+tools/whisper/
+tools/server_manager/.build-venv/
+tools/server_manager/build/
+
+# Artefatos de build (PyInstaller etc.)
+EscutaPet_Gerenciador.exe
+*.spec
+
+# Editores e IDEs
+.vscode/
+.idea/
+*.swp
+
+# Arquivos de sistema operacional
+Thumbs.db
+Desktop.ini
+.DS_Store

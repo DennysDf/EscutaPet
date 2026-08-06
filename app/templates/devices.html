@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Cidades e pontos · EscutaPet{% endblock %}
+{% block page_title %}Cidades e pontos de coleta{% endblock %}
+{% block page_subtitle %}Totens, tablets e estações de entrevistador organizados por local{% endblock %}
+{% block content %}
+{% if user.role == 'admin' %}
+<section class="city-manager">
+  <form method="post" action="/cidades" class="panel form-stack">
+    <div class="panel-head"><div><h2>Nova cidade</h2><p>Organiza leads, usuários e pontos de coleta.</p></div></div>
+    <div class="inline-fields"><label>Cidade<input name="name" required placeholder="Alto Horizonte"></label><label>UF<input name="state" maxlength="2" value="GO" required></label></div>
+    <button class="btn secondary">Adicionar cidade</button>
+  </form>
+  <article class="panel">
+    <div class="panel-head"><div><h2>Cidades cadastradas</h2><p>Desative sem apagar o histórico.</p></div></div>
+    <div class="city-list">
+      {% for city in cities %}
+      <form method="post" action="/cidades/{{ city.id }}/editar" class="city-row">
+        <label>Cidade<input name="name" value="{{ city.name }}" required></label>
+        <label>UF<input name="state" value="{{ city.state }}" maxlength="2" required></label>
+        <label class="check-card compact"><input type="checkbox" name="active" {{ 'checked' if city.active else '' }}><span><strong>Ativa</strong></span></label>
+        <button class="btn ghost">Salvar</button>
+      </form>
+      {% else %}<div class="empty-block">Nenhuma cidade cadastrada.</div>{% endfor %}
+    </div>
+  </article>
+</section>
+{% endif %}
+<section class="two-columns reverse-mobile">
+  {% if user.role == 'admin' %}
+  <article class="panel">
+    <div class="panel-head"><div><h2>Novo ponto</h2><p>Gera um endereço público exclusivo.</p></div></div>
+    <form method="post" class="form-stack">
+      <label>Nome<input name="name" required placeholder="Totem da recepção"></label>
+      <label>Cidade<select name="city_id"><option value="">Sem cidade definida</option>{% for city in cities if city.active %}<option value="{{ city.id }}">{{ city.name }}/{{ city.state }}</option>{% endfor %}</select></label>
+      <label>Endereço<input name="address" placeholder="Recepção da clínica"></label>
+      <div class="inline-fields"><label>Latitude<input type="number" step="any" name="latitude"></label><label>Longitude<input type="number" step="any" name="longitude"></label></div>
+      <label>Modo<select name="mode"><option value="kiosk">Quiosque autônomo</option><option value="interviewer">Entrevistador</option></select></label>
+      <label>Fluxo de entrada principal<select name="default_entry_flow_id"><option value="">Escolher na tela</option>{% for flow in entry_flows %}<option value="{{ flow.id }}">{{ flow.name }}</option>{% endfor %}</select></label>
+      <label>Questionário avulso inicial<select name="default_questionnaire_id"><option value="">Nenhum</option>{% for questionnaire in questionnaires %}<option value="{{ questionnaire.id }}">{{ questionnaire.name }}</option>{% endfor %}</select></label>
+      <label class="check-card"><input type="checkbox" name="allow_anonymous" checked><span><strong>Permitir pesquisa anônima avulsa</strong></span></label>
+      <button class="btn primary">Criar ponto</button>
+    </form>
+  </article>
+  {% endif %}
+  <div class="device-grid">
+    {% for device in devices %}
+    <article class="device-card">
+      <div class="device-preview"><span>{{ icon('location') }}</span><i class="{{ 'online' if device.last_seen_at else '' }}"></i></div>
+      <div>
+        <span class="status {{ 'active' if device.active else 'paused' }}">{{ 'ativo' if device.active else 'inativo' }}</span>
+        <h3>{{ device.name }}</h3>
+        <p>{{ device.city.name ~ '/' ~ device.city.state if device.city else 'Sem cidade' }} · {{ device.mode }} · {{ device.address or 'endereço não informado' }}</p>
+        <label>Endereço público<div class="copy-field"><input readonly value="{{ request.base_url }}coleta/{{ device.token }}"><button type="button" data-copy aria-label="Copiar endereço da coleta">Copiar</button></div></label>
+        <a class="btn secondary full" target="_blank" href="/coleta/{{ device.token }}">Abrir coleta</a>
+        {% if user.role == 'admin' %}
+        <details class="device-edit"><summary>Editar este ponto</summary>
+          <form method="post" action="/dispositivos/{{ device.id }}/editar" class="form-stack">
+            <label>Nome<input name="name" value="{{ device.name }}"></label>
+            <label>Cidade<select name="city_id"><option value="">Sem cidade</option>{% for city in cities if city.active %}<option value="{{ city.id }}" {{ 'selected' if device.city_id == city.id else '' }}>{{ city.name }}/{{ city.state }}</option>{% endfor %}</select></label>
+            <label>Endereço<input name="address" value="{{ device.address or '' }}"></label>
+            <div class="inline-fields"><label>Latitude<input type="number" step="any" name="latitude" value="{{ device.latitude if device.latitude is not none else '' }}"></label><label>Longitude<input type="number" step="any" name="longitude" value="{{ device.longitude if device.longitude is not none else '' }}"></label></div>
+            <label>Modo<select name="mode"><option value="kiosk" {{ 'selected' if device.mode == 'kiosk' else '' }}>Quiosque</option><option value="interviewer" {{ 'selected' if device.mode == 'interviewer' else '' }}>Entrevistador</option></select></label>
+            <label>Fluxo principal<select name="default_entry_flow_id"><option value="">Escolher na tela</option>{% for flow in entry_flows %}<option value="{{ flow.id }}" {{ 'selected' if device.default_entry_flow_id == flow.id else '' }}>{{ flow.name }}</option>{% endfor %}</select></label>
+            <label>Questionário avulso<select name="default_questionnaire_id"><option value="">Nenhum</option>{% for questionnaire in questionnaires %}<option value="{{ questionnaire.id }}" {{ 'selected' if device.default_questionnaire_id == questionnaire.id else '' }}>{{ questionnaire.name }}</option>{% endfor %}</select></label>
+            <label>Título da tela<input name="hero_title" value="{{ device.hero_title }}"></label>
+            <label>Texto da tela<textarea name="hero_text" rows="2">{{ device.hero_text }}</textarea></label>
+            <label>Cor<input type="color" name="primary_color" value="{{ device.primary_color }}"></label>
+            <label class="check-card"><input type="checkbox" name="allow_anonymous" {{ 'checked' if device.allow_anonymous else '' }}><span><strong>Permitir anônimo</strong></span></label>
+            <label class="check-card"><input type="checkbox" name="active" {{ 'checked' if device.active else '' }}><span><strong>Ponto ativo</strong></span></label>
+            <label class="check-card"><input type="checkbox" name="rotate_token"><span><strong>Gerar novo endereço</strong></span></label>
+            <button class="btn primary">Salvar ponto</button>
+          </form>
+        </details>
+        {% endif %}
+      </div>
+    </article>
+    {% else %}<div class="empty-state"><h3>Nenhum ponto de coleta</h3></div>{% endfor %}
+  </div>
+</section>
+{% endblock %}
